@@ -1,0 +1,10 @@
+7Cards Games — By Syam
+Version: 1.1.0
+Release changes:
+- High-contrast suit symbols (hearts, diamonds, clubs, spades)
+- Cards keep their true colors when not playable
+- Improved table: suit names, symbols on played cards, visible empty slots
+- Opt-in friends voice chat (WebRTC, PeerJS) with Join / Mute / Leave
+- Optional spoken card-move announcer (browser text-to-speech)
+- Updated PWA cache to reduce stale releases
+- GitHub Actions CI verification and existing Render automatic deployment

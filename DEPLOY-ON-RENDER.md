@@ -1,14 +1,24 @@
-# Deploy 7Cards Games by Syam to Render
+# Render deployment - existing service, version 1.1
 
-This package is a fully static website. It supports bot play locally, and browser-to-browser friend rooms while the host remains online.
+**GitHub source:** https://github.com/syamsai268-cmyk/7cards-games-by-syam
 
-**Recommended deployment**
+**Render website:** https://sevencards-games-by-syam.onrender.com
 
-1. Unzip this package.
-2. Create a new GitHub repository and upload the contents of the extracted folder to its root (`index.html`, `app.js`, `styles.css`, `render.yaml` etc.).
-3. Sign in at https://dashboard.render.com and connect your GitHub account/repository.
-4. Create **New > Static Site** using that repository. Suggested Name: `7cards-games-by-syam` (subject to availability). Build Command: `echo No build required`; Publish Directory: `.`.
-   Alternatively, create **New > Blueprint** with the repository to use the supplied `render.yaml`.
-5. After a successful deployment, Render displays your actual live URL (ending with `.onrender.com`). Share it with friends. Do not guess the name before deployment.
+**Render Dashboard:** https://dashboard.render.com/static/srv-dc254lnf3r2c73ebqns0
 
-**Important:** A public site URL does NOT mean your multiplayer game server is always running. Online multiplayer here is peer-to-peer through PeerJS; the game host must stay online. Bots work offline after assets are cached. Browser/WebRTC restrictions or PeerJS service outages can interrupt online play.
+**Current settings created for the original site:**
+- Static site, branch `main`
+- Build command: `echo '7Cards Games static site ready'`
+- Publish directory: `.`
+- Auto Deploy: On Commit (`autoDeploy=yes`)
+
+The `render.yaml` file is included as documentation/optional Blueprint configuration. It does not change the already-created site when you upload it. **No need to run Blueprint create.**
+
+## Updating
+
+1. Upload the extracted v1.1 website files to the existing GitHub repository, overwriting filenames in the repository root.
+2. Commit to `main`. Render automatically starts a deploy from that commit.
+3. View the Render Dashboard → Events / Deploys. Wait until status is **Live**.
+4. Reload the live website in your browser. On the first update after v1.0, a second refresh may be necessary to activate the newer service worker.
+
+GitHub Actions `/.github/workflows/ci.yml` runs syntax + rules checks automatically. With the currently configured **On Commit** deployment, a failing check will not prevent Render from deploying. To gate production deployments on passing CI, choose Render Dashboard → Service → Settings → Auto Deploy → **After CI Checks Pass** (if available for the service).

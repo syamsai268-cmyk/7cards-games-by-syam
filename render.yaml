@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: 7cards-games-by-syam
+    runtime: static
+    buildCommand: echo "No build needed for 7Cards Games"
+    staticPublishPath: ./

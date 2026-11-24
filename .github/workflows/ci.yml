@@ -1,4 +1,4 @@
-name: 7Cards CI - validate v1.1
+name: 7Cards CI - validate v1.4.1
 on:
   push:
     branches: [main]
@@ -21,7 +21,7 @@ jobs:
         run: node --check app.js
       - name: Check service worker syntax
         run: node --check sw.js
-      - name: Verify game rules and v1.1 assets
+      - name: Verify game rules and v1.4.1 assets
         run: node scripts/check-release.mjs
 # CD: the existing Render static site is linked to the GitHub 'main' branch,
 # with Render Auto Deploy set to 'On Commit'. Pushes to main trigger Render deployment.

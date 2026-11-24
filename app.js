@@ -25,8 +25,7 @@ let voiceStream = null;
 let voiceMuted = false;
 let voiceStarting = false;
 let voiceMenuOpen = false;
-const voiceCalls = new Map(); // PeerJS media calls by remote peer ID
-const voiceAudios = new Map(); // audio elements persist outside rerendered game UI
+// Microphone packets are relayed by the dedicated room WebSocket; no PeerJS calls.
 
 let toastTimeout = null, botTimeout = null, joinTimeout = null;
 let loadingMessage = '', lastError = '';
@@ -51,7 +50,7 @@ function turnPlayer(room) {return room.seats[room.game.turnIndex];}
 function logSystem(message) {if(!hostRoom)return;hostRoom.chat.push({system:true,text:message});hostRoom.chat=hostRoom.chat.slice(-80);}
 function sound(type='play') {if(!audioEnabled)return;try{const context=new (window.AudioContext||window.webkitAudioContext)();const o=context.createOscillator();const g=context.createGain();o.connect(g);g.connect(context.destination);o.type='sine';o.frequency.setValueAtTime(type==='win'?640:420,context.currentTime);o.frequency.exponentialRampToValueAtTime(type==='win'?990:260,context.currentTime+.13);g.gain.setValueAtTime(.08,context.currentTime);g.gain.exponentialRampToValueAtTime(.001,context.currentTime+.16);o.start();o.stop(context.currentTime+.17);setTimeout(()=>context.close(),380);}catch{}}
 function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('visible');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>el.classList.remove('visible'),3000);}
-function header() {return `<header class="topbar"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">CREATED BY SYAM <span class="version-mark">V1.5</span></div></div></div><div class="top-actions"><button class="pill" data-action="rules">ⓘ &nbsp;How to play</button><button class="pill" data-action="sound">${audioEnabled?'♫ Sound on':'♪ Sound off'}</button><div class="voice-anchor"><button class="pill voice-trigger ${voiceStream?'voice-live':''}" data-action="voice-menu" aria-controls="voicePopover" aria-expanded="${voiceMenuOpen}" aria-label="Voice chat and announcer settings">${voiceStream?(voiceMuted?'🔇 Voice muted':'🎙️ Voice on'):'🎙️ Voice'}</button>${voiceMenuOpen?voicePanel(screen==='room'?currentView:null):''}</div>${screen!=='home'?'<button class="pill" data-action="home">⌂ &nbsp;Home</button>':''}</div></header>`;}
+function header() {return `<header class="topbar"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">CREATED BY SYAM <span class="version-mark">V1.6</span></div></div></div><div class="top-actions"><button class="pill" data-action="rules">ⓘ &nbsp;How to play</button><button class="pill" data-action="sound">${audioEnabled?'♫ Sound on':'♪ Sound off'}</button><div class="voice-anchor"><button class="pill voice-trigger ${voiceStream?'voice-live':''}" data-action="voice-menu" aria-controls="voicePopover" aria-expanded="${voiceMenuOpen}" aria-label="Voice chat and announcer settings">${voiceStream?(voiceMuted?'🔇 Voice muted':'🎙️ Voice on'):'🎙️ Voice'}</button>${voiceMenuOpen?voicePanel(screen==='room'?currentView:null):''}</div>${screen!=='home'?'<button class="pill" data-action="home">⌂ &nbsp;Home</button>':''}</div></header>`;}
 function footer(){return '<footer class="footer">7Cards Games • Made with ♥ by Syam • Play fair, play together • No real-money betting</footer>';}
 function homeView() {const saved=getSavedSolo();return `
 <section class="hero surface"><div><div class="eyebrow">✦ The classic game of Sevens</div><h1>One card.<br><em>Endless fun.</em></h1><p class="lead">Start with the <b>7 of Hearts</b>. Build every suit up and down. Outsmart your friends or battle clever bots. Lowest score wins!</p><div class="hero-actions"><button class="btn primary" data-action="solo">🤖 &nbsp;Play with bots</button><button class="btn secondary" data-action="host">♣ &nbsp;Play with friends</button><button class="btn tertiary" data-action="join-screen">↗ &nbsp;Join room</button>${saved?'<button class="btn tertiary" data-action="resume">↺ Resume solo game</button>':''}</div></div><div class="hero-art" aria-hidden="true"><div class="floatcard second"><span>7♠</span><b>♠</b><span>7</span></div><div class="floatcard third"><span>8♦</span><b>♦</b><span>8</span></div><div class="floatcard first"><span>7♥</span><b>♥</b><span>7</span></div></div></section>
@@ -92,9 +91,9 @@ function voicePanel(v){
   const joined=online?(v.voicePeers||[]).filter(x=>x.voiceOn&&!x.isBot).length:0;
   return `<section class="voice-popover" id="voicePopover" aria-label="Voice settings">
     <div class="voice-pop-title">🎙️ Voice & sound</div>
-    ${online?`<p class="voice-pop-desc">Talk to friends in this room. Microphone access is optional.</p><div class="voice-actions"><button class="btn ${voiceStream?'tertiary':'primary'}" data-action="voice-toggle">${voiceStream?'🔌 Leave voice':'🎙️ Join voice'}</button>${voiceStream?`<button class="btn ${voiceMuted?'primary':'tertiary'}" data-action="voice-mute">${voiceMuted?'🎤 Unmute':'🔇 Mute'}</button>`:''}</div><div class="voice-members">${(v.voicePeers||[]).filter(x=>!x.isBot).map(x=>`<span class="voice-member ${x.voiceOn?'talking-enabled':''}">${x.voiceOn?(x.voiceMuted?'🔇':'🎙️'):'○'} ${html(x.name)}${x.id===myId?' (You)':''}</span>`).join('')}</div><p class="voice-pop-desc">${joined} in voice · headphones recommended</p>`:'<p class="voice-pop-desc">Live voice chat works in friends rooms. You can still enable spoken card moves below.</p>'}
+    ${online?`<p class="voice-pop-desc">Talk to friends in this room. Microphone access is optional.</p><div class="voice-actions"><button class="btn ${voiceStream?'tertiary':'primary'}" data-action="voice-toggle">${voiceStream?'🔌 Leave voice':'🎙️ Join voice'}</button>${voiceStream?`<button class="btn ${voiceMuted?'primary':'tertiary'}" data-action="voice-mute">${voiceMuted?'🎤 Unmute':'🔇 Mute'}</button>`:''}</div>${voiceStream?'<button class="btn tertiary" data-action="voice-test">🔊 Test speaker</button>':''}</div><div class="voice-members">${(v.voicePeers||[]).filter(x=>!x.isBot).map(x=>`<span class="voice-member ${x.voiceOn?'talking-enabled':''}">${x.voiceOn?(x.voiceMuted?'🔇':'🎙️'):'○'} ${html(x.name)}${x.id===myId?' (You)':''}</span>`).join('')}</div><p class="voice-pop-desc" id="voiceReceiveStatus">${joined} in voice · headphones recommended · ${voiceStream?'Mic ON':'Mic OFF'}</p>`:'<p class="voice-pop-desc">Live voice chat works in friends rooms. You can still enable spoken card moves below.</p>'}
     <label class="voice-announce"><input type="checkbox" id="announcerCheck" ${announcerEnabled?'checked':''}> 🔊 Announce card moves aloud</label>
-    <p class="voice-pop-foot">Voice chat is peer-to-peer. This site does not record the audio.</p>
+    <p class="voice-pop-foot">Voice audio is streamed within this room. No voice recordings are saved.</p>
   </section>`;
 }
 function chatView(v){return `<section class="panel surface"><h3 class="side-title">💬 Table talk</h3><div class="chatlog" id="chatlog">${(v.chat||[]).map(x=>`<div class="chat-line ${x.system?'system':''}">${x.system?html(x.text):`<b>${html(x.name)}:</b> ${html(x.text)}`}</div>`).join('')}</div><div class="chatbox"><input id="chatInput" type="text" placeholder="Say something nice…" maxlength="140" autocomplete="off"><button data-action="chat" title="Send message">➤</button></div><div class="reactions">${['👏','🔥','😎','❤️'].map(e=>`<button data-action="reaction" data-emoji="${e}" title="Send reaction">${e}</button>`).join('')}</div></section>`;}
@@ -137,22 +136,7 @@ function makeRelayGuestConnection(ws, channel){
   };
   return c;
 }
-function initVoicePeer(){
-  if(peer||!window.Peer||isSolo)return;
-  try{
-    peer=new Peer(undefined,{debug:0});
-    peer.on('call',receiveVoiceCall);
-    peer.on('open',()=>{
-      if(role==='host'&&hostRoom){
-        const me=hostRoom.seats.find(x=>x.id===myId);
-        if(me){me.peerId=peer.id;broadcast();}
-      }else if(role==='guest'&&guestConn?.open){
-        guestConn.send({type:'voice-state',enabled:!!voiceStream,muted:voiceMuted,peerId:peer.id});
-      }
-    });
-    peer.on('error',err=>console.warn('Optional voice signaling unavailable:',err?.type||err));
-  }catch(e){console.warn('Voice service unavailable:',e);}
-}
+function initVoicePeer(){ /* Room voice no longer depends on WebRTC peer signaling. */ }
 
 function saveName(){const name=($('#yourName')?.value||playerName||'Player').trim().slice(0,22)||'Player';playerName=name;store.setItem('syam7-name',name);return name;}
 
@@ -178,6 +162,8 @@ function createOnline(){
       logSystem('Room created! Share the invite link. Keep this tab open.');
       broadcast();
       initVoicePeer();
+    }else if(m.type==='voice-audio'){
+      handleVoiceAudio(m);
     }else if(m.type==='guest-open'){
       const channel=String(m.channel||'');
       if(!channel||relayPeers.has(channel))return;
@@ -247,6 +233,8 @@ function joinOnline(){
     if(m.type==='connected'){
       guestConn.send({type:'join',token,name});
       initVoicePeer();
+    }else if(m.type==='voice-audio'){
+      handleVoiceAudio(m);
     }else if(m.type==='data'){
       const data=m.data;
       if(data?.type==='joined'){
@@ -308,70 +296,160 @@ function announceMove(){
  const phrase=action.replace(/♥/g,' hearts').replace(/♦/g,' diamonds').replace(/♣/g,' clubs').replace(/♠/g,' spades');
  try{speechSynthesis.cancel();const speech=new SpeechSynthesisUtterance(phrase);speech.rate=1.04;speech.volume=.8;speechSynthesis.speak(speech);}catch{}
 }
+
+const VOICE_SAMPLE_RATE=16000;
+const VOICE_MU=255;
+const VOICE_LOG=Math.log1p(VOICE_MU);
+const voiceDecodeLut=Float32Array.from({length:256},(_,i)=>{
+ const y=i/127.5-1;
+ return (y<0?-1:1)*Math.expm1(Math.abs(y)*VOICE_LOG)/VOICE_MU;
+});
+let voiceAudioContext=null;
+let voiceInputNode=null;
+let voiceProcessor=null;
+let voiceSilentGain=null;
+let voicePlaybackHeads=new Map();
+let voiceSentPackets=0;
+let voiceReceivedPackets=0;
 function voiceStateChanged(){
- if(role==='host'&&hostRoom){const me=hostRoom.seats.find(x=>x.id===myId);if(me){me.voiceOn=!!voiceStream;me.voiceMuted=voiceMuted;}broadcast();}
- else if(role==='guest'&&guestConn?.open){guestConn.send({type:'voice-state',enabled:!!voiceStream,muted:voiceMuted,peerId:peer?.id||null});}
-}
-function detachVoiceCall(remoteId,call){
- if(voiceCalls.get(remoteId)!==call)return;
- voiceCalls.delete(remoteId);
- const audio=voiceAudios.get(remoteId);
- if(audio){audio.pause();audio.srcObject=null;audio.remove();voiceAudios.delete(remoteId);}
-}
-function wireVoiceCall(call){
- if(!call||!call.peer)return;
- const remoteId=call.peer;
- const prior=voiceCalls.get(remoteId);
- if(prior&&prior!==call){try{prior.close();}catch{}detachVoiceCall(remoteId,prior);}
- voiceCalls.set(remoteId,call);
- call.on('stream',stream=>{
-   if(!voiceStream||!currentView?.voicePeers?.some(x=>x.peerId===remoteId)){return;}
-   let audio=voiceAudios.get(remoteId);
-   if(!audio){audio=document.createElement('audio');audio.autoplay=true;audio.playsInline=true;audio.setAttribute('aria-label','Voice chat audio');audioRoot().append(audio);voiceAudios.set(remoteId,audio);}
-   audio.srcObject=stream;
-   const playing=audio.play();if(playing?.catch)playing.catch(()=>toast('Tap the voice control to allow audio playback.'));
- });
- call.on('close',()=>detachVoiceCall(remoteId,call));
- call.on('error',()=>detachVoiceCall(remoteId,call));
-}
-function receiveVoiceCall(call){
- // Refuse audio from anyone not already registered in this private room.
- const accepted=voiceStream&&currentView?.voicePeers?.some(x=>x.peerId===call.peer);
- if(!accepted){try{call.close();}catch{}return;}
- wireVoiceCall(call);
- try{call.answer(voiceStream);}catch{try{call.close();}catch{}}
-}
-function syncVoice(){
- if(!voiceStream||!peer?.id||!currentView?.voicePeers||isSolo)return;
- const active=new Set(currentView.voicePeers.filter(x=>x.voiceOn&&x.peerId&&x.id!==myId).map(x=>x.peerId));
- for(const [id,call] of voiceCalls){if(!active.has(id)){try{call.close();}catch{}detachVoiceCall(id,call);}}
- // Deterministic caller ordering prevents duplicate bidirectional media calls.
- for(const id of active){
-   if(peer.id>=id||voiceCalls.has(id))continue;
-   try{const call=peer.call(id,voiceStream);if(call)wireVoiceCall(call);}catch{}
+ if(role==='host'&&hostRoom){
+  const me=hostRoom.seats.find(x=>x.id===myId);
+  if(me){me.voiceOn=!!voiceStream;me.voiceMuted=voiceMuted;}
+  broadcast();
+ }else if(role==='guest'&&guestConn?.open){
+  guestConn.send({type:'voice-state',enabled:!!voiceStream,muted:voiceMuted});
  }
 }
-async function joinVoice(){
- if(voiceStarting||voiceStream||isSolo||!peer?.id||screen!=='room'){toast('Join an online friends room before enabling voice.');return;}
- if(!navigator.mediaDevices?.getUserMedia){toast('Microphone unavailable. Use HTTPS and allow microphone permissions.');return;}
- voiceStarting=true;
+function syncVoice(){ /* Voice is now carried by the existing WebSocket room relay. */ }
+function encodeVoiceSample(sample){
+ const x=Math.max(-1,Math.min(1,sample||0));
+ const compressed=(x<0?-1:1)*Math.log1p(VOICE_MU*Math.abs(x))/VOICE_LOG;
+ return Math.max(0,Math.min(255,Math.round((compressed+1)*127.5)));
+}
+function decodeVoiceSample(code){return voiceDecodeLut[code&255];}
+function sendMicrophoneAudio(input,sourceSampleRate){
+ if(!voiceStream||voiceMuted||!relaySocket||relaySocket.readyState!==WebSocket.OPEN)return;
+ if(relaySocket.bufferedAmount>100000)return; // Keep audio live instead of queueing stale sound.
+ let energy=0;
+ for(let i=0;i<input.length;i++)energy+=input[i]*input[i];
+ if(energy/input.length<0.000009)return; // Avoid sending complete silence.
+ const ratio=sourceSampleRate/VOICE_SAMPLE_RATE;
+ const output=new Uint8Array(Math.ceil(input.length/ratio)+1);
+ let n=0;
+ for(let start=0;start<input.length;start+=ratio){
+  const begin=Math.floor(start),end=Math.min(input.length,Math.max(begin+1,Math.floor(start+ratio)));
+  let sum=0;
+  for(let k=begin;k<end;k++)sum+=input[k];
+  output[n++]=encodeVoiceSample(sum/(end-begin));
+ }
+ if(!n)return;
+ const audio=btoa(String.fromCharCode(...output.subarray(0,n)));
+ if(relaySend(relaySocket,{type:'voice-audio',audio}))voiceSentPackets++;
+}
+function handleVoiceAudio(message){
+ if(!voiceStream||!voiceAudioContext||isSolo||!message||typeof message.audio!=='string')return;
+ const from=String(message.from||'');
+ if(!from||message.audio.length>12000)return;
  try{
-   const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
-   if(!peer||screen!=='room'){stream.getTracks().forEach(t=>t.stop());return;}
-   voiceStream=stream;voiceMuted=false;
-   voiceStateChanged();render();toast('Microphone connected. Friends can hear you when they join voice.');
- }catch(e){toast(e?.name==='NotAllowedError'?'Microphone access denied. Allow it in your browser settings.':'Unable to access your microphone.');}
- finally{voiceStarting=false;}
+  const bytes=atob(message.audio);
+  if(!bytes.length||bytes.length>8192)return;
+  const ctx=voiceAudioContext;
+  if(ctx.state==='suspended')ctx.resume().catch(()=>{});
+  const buffer=ctx.createBuffer(1,bytes.length,VOICE_SAMPLE_RATE);
+  const samples=buffer.getChannelData(0);
+  for(let i=0;i<bytes.length;i++)samples[i]=decodeVoiceSample(bytes.charCodeAt(i));
+  const src=ctx.createBufferSource();
+  src.buffer=buffer;src.connect(ctx.destination);
+  let start=voicePlaybackHeads.get(from);
+  const now=ctx.currentTime;
+  if(!Number.isFinite(start)||start<now+0.015||start>now+0.8)start=now+0.10;
+  src.start(start);
+  voicePlaybackHeads.set(from,start+buffer.duration);
+  voiceReceivedPackets++;
+  const state=document.getElementById('voiceReceiveStatus');
+  if(state)state.textContent='🎧 Receiving voice audio ('+voiceReceivedPackets+' packets)';
+ }catch(err){console.warn('Cannot decode room audio:',err);}
+}
+async function joinVoice(){
+ if(voiceStarting||voiceStream||isSolo||screen!=='room'||!relaySocket||relaySocket.readyState!==WebSocket.OPEN){
+  toast('Join an online friends room before enabling voice.');return;
+ }
+ if(!navigator.mediaDevices?.getUserMedia){
+  toast('Microphone unavailable. Use Chrome on HTTPS and allow mic permission.');return;
+ }
+ const Context=window.AudioContext||window.webkitAudioContext;
+ if(!Context||!window.btoa||!window.atob){toast('Your browser does not support voice audio. Try Chrome.');return;}
+ voiceStarting=true;
+ let ctx=null,stream=null;
+ try{
+  ctx=new Context({latencyHint:'interactive'});
+  await ctx.resume();
+  stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+  if(screen!=='room'||relaySocket?.readyState!==WebSocket.OPEN){
+   stream.getTracks().forEach(t=>t.stop());await ctx.close();return;
+  }
+  if(typeof ctx.createScriptProcessor!=='function')throw new Error('Audio processing unavailable');
+  const source=ctx.createMediaStreamSource(stream);
+  const processor=ctx.createScriptProcessor(4096,1,1);
+  const silent=ctx.createGain();silent.gain.value=0;
+  processor.onaudioprocess=event=>{
+   try{
+    const input=event.inputBuffer.getChannelData(0);
+    sendMicrophoneAudio(input,ctx.sampleRate);
+   }catch(err){console.warn('Microphone audio processing failed:',err);}
+  };
+  source.connect(processor);
+  processor.connect(silent);
+  silent.connect(ctx.destination);
+  voiceAudioContext=ctx;voiceInputNode=source;voiceProcessor=processor;voiceSilentGain=silent;
+  voiceStream=stream;voiceMuted=false;voiceSentPackets=0;voiceReceivedPackets=0;
+  voicePlaybackHeads.clear();
+  voiceStateChanged();
+  render();
+  toast('🎙️ Microphone ready. Each friend must tap Voice → Join voice too.');
+ }catch(err){
+  try{stream?.getTracks().forEach(t=>t.stop());}catch{}
+  try{await ctx?.close();}catch{}
+  console.warn('Voice startup failed:',err);
+  const message=err?.name==='NotAllowedError'
+   ?'Microphone blocked. Allow the microphone in Chrome site permissions.'
+   :err?.name==='NotFoundError'
+    ?'No microphone found on this device.'
+    :'Could not start audio. Check phone microphone permissions and retry.';
+  toast(message);
+ }finally{voiceStarting=false;}
 }
 function stopVoice(notify=true){
- for(const [id,call] of [...voiceCalls]){try{call.close();}catch{}detachVoiceCall(id,call);}
- for(const audio of voiceAudios.values()){try{audio.pause();audio.srcObject=null;audio.remove();}catch{}}
- voiceAudios.clear();
+ const ctx=voiceAudioContext;
+ const processor=voiceProcessor,source=voiceInputNode,gain=voiceSilentGain;
+ if(processor){processor.onaudioprocess=null;try{processor.disconnect();}catch{}}
+ if(source)try{source.disconnect();}catch{}
+ if(gain)try{gain.disconnect();}catch{}
  try{voiceStream?.getTracks().forEach(t=>t.stop());}catch{}
- voiceStream=null;voiceMuted=false;
+ voiceStream=null;voiceMuted=false;voiceAudioContext=null;voiceInputNode=null;voiceProcessor=null;voiceSilentGain=null;
+ voicePlaybackHeads.clear();
+ if(ctx)try{ctx.close().catch(()=>{});}catch{}
  if(notify){voiceStateChanged();render();toast('Left voice chat. Microphone is off.');}
 }
-function toggleVoiceMute(){if(!voiceStream)return;voiceMuted=!voiceMuted;voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted);voiceStateChanged();render();toast(voiceMuted?'Microphone muted':'Microphone unmuted');}
+function toggleVoiceMute(){
+ if(!voiceStream)return;
+ voiceMuted=!voiceMuted;
+ voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted);
+ voiceStateChanged();render();toast(voiceMuted?'Microphone muted':'Microphone unmuted');
+}
+function testVoiceSpeaker(){
+ const ctx=voiceAudioContext;
+ if(!ctx){toast('Join voice first to test your speaker.');return;}
+ ctx.resume().then(()=>{
+  const tone=ctx.createOscillator(),volume=ctx.createGain();
+  tone.type='sine';tone.frequency.value=570;
+  tone.connect(volume);volume.connect(ctx.destination);
+  volume.gain.setValueAtTime(.001,ctx.currentTime);
+  volume.gain.exponentialRampToValueAtTime(.15,ctx.currentTime+.03);
+  volume.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.3);
+  tone.start();tone.stop(ctx.currentTime+.32);
+ }).catch(()=>toast('Audio output unavailable. Raise media volume and retry.'));
+}
 
 function inviteUrl(){if(!currentView||isSolo)return '';return location.origin+location.pathname+'?room='+encodeURIComponent(currentView.code);}
 async function copyLink(){const url=inviteUrl();if(!url){toast('Invite links are for online rooms only.');return;}try{await navigator.clipboard.writeText(url);toast('Invite link copied! Send it to your friends.');}catch{const box=document.createElement('textarea');box.value=url;document.body.append(box);box.select();document.execCommand('copy');box.remove();toast('Invite link copied: '+url);}}
@@ -400,6 +478,7 @@ app.addEventListener('click',async event=>{const el=event.target.closest('[data-
  case 'reaction':sendMessage(el.dataset.emoji);break;
  case 'voice-toggle':if(voiceStream)stopVoice();else await joinVoice();break;
  case 'voice-mute':toggleVoiceMute();break;
+ case 'voice-test':testVoiceSpeaker();break;
  }
 });
 function sendMessage(text){if(role==='host')handleAction(myId,{type:'chat',text});else if(guestConn?.open)guestConn.send({type:'chat',text});}
@@ -408,7 +487,7 @@ app.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='chatInput'
 app.addEventListener('change',e=>{if(e.target.id==='announcerCheck'){announcerEnabled=!!e.target.checked;store.setItem('syam7-announcer',announcerEnabled?'on':'off');lastAnnouncedAction='';if(!announcerEnabled&&'speechSynthesis' in window)try{speechSynthesis.cancel();}catch{}return;}});
 $('#rulesClose').addEventListener('click',()=>$('#rulesDialog').close());
 $('#rulesDialog').addEventListener('click',e=>{if(e.target.id==='rulesDialog')$('#rulesDialog').close();});
-window.Syam7Test={allCards,legalMoves,makeRoom,shuffle,packCard,boardView,getView,hostControl,getHostRoom:()=>hostRoom,voicePanel,header};
+window.Syam7Test={allCards,legalMoves,makeRoom,shuffle,packCard,boardView,getView,hostControl,getHostRoom:()=>hostRoom,voicePanel,header,encodeVoiceSample,decodeVoiceSample,handleVoiceAudio};
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).catch(()=>{});}
 render();
 })();

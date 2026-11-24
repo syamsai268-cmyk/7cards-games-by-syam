@@ -78,6 +78,23 @@ wss.on('connection', (ws, req) => {
       if (guest) safeSend(guest, {type:'connected'});
       return;
     }
+    // Opt-in microphone audio is sent directly to other connected room members.
+    // 16 kHz mono, 8-bit mu-law; each short packet stays ephemeral in memory.
+    if (type === 'voice-audio') {
+      const audio = msg.audio;
+      if (typeof audio !== 'string' || !/^[A-Za-z0-9+/=]{100,12000}$/.test(audio)) return;
+      if (ws.role !== 'host' && (ws.role !== 'guest' || room.guests.get(ws.channel) !== ws)) return;
+      const now = Date.now();
+      const rate = ws.voiceRate || (ws.voiceRate = {at:now,n:0});
+      if (now-rate.at >= 1000) {rate.at=now;rate.n=0;}
+      if (++rate.n > 26) return;
+      const packet = {type:'voice-audio',from:ws.role==='host'?'host':ws.channel,audio};
+      if (ws.role !== 'host') safeSend(room.host,packet);
+      for (const guest of room.guests.values()) {
+        if (guest!==ws && guest.readyState===WebSocket.OPEN) safeSend(guest,packet);
+      }
+      return;
+    }
     if (type === 'relay' && msg.data && typeof msg.data === 'object') {
       if (JSON.stringify(msg.data).length > 64000) return fail(ws,'Message too large.');
       if (ws.role === 'guest') safeSend(room.host,{type:'data',channel:ws.channel,data:msg.data});

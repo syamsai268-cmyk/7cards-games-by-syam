@@ -33,6 +33,19 @@ test('Two players join one room, exchange cards and detect host leaving', async 
     const guestGot=recv(guest,'data');
     host.send(JSON.stringify({type:'relay',channel,data:{type:'joined',id:'p-12345678901234567890'}}));
     assert.equal((await guestGot).data.type,'joined');
+    // Voice travels in both directions via the same room connection.
+    // One audio packet is ephemeral and is never stored as a recording.
+    const sample=Buffer.alloc(320,140).toString('base64');
+    let voice=recv(host,'voice-audio');
+    guest.send(JSON.stringify({type:'voice-audio',audio:sample}));
+    const toHost=await voice;
+    assert.equal(toHost.audio,sample);
+    assert.equal(toHost.from,channel);
+    voice=recv(guest,'voice-audio');
+    host.send(JSON.stringify({type:'voice-audio',audio:sample}));
+    const toGuest=await voice;
+    assert.equal(toGuest.audio,sample);
+    assert.equal(toGuest.from,'host');
     const gone=recv(guest,'error');
     host.close();
     assert.equal((await gone).code,'HOST_LEFT');

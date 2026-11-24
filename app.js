@@ -11,6 +11,9 @@ const BOT_NAMES = ['Ace Bot', 'Mira Bot', 'Ravi Bot', 'Nova Bot', 'Blaze Bot', '
 const BOT_EMOJIS = ['🤖','🦊','🎮','✨','🔥','🧠','⭐'];
 const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 let peer = null, guestConn = null, hostRoom = null, currentView = null;
+const RELAY_URL = 'wss://sevencards-room-relay-syam.onrender.com/ws';
+let relaySocket = null;
+const relayPeers = new Map();
 let conns = new Map(), myId = '', role = '', isSolo = false;
 let screen = new URLSearchParams(location.search).get('room') ? 'join' : 'home';
 let gameCode = String(new URLSearchParams(location.search).get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
@@ -48,13 +51,13 @@ function turnPlayer(room) {return room.seats[room.game.turnIndex];}
 function logSystem(message) {if(!hostRoom)return;hostRoom.chat.push({system:true,text:message});hostRoom.chat=hostRoom.chat.slice(-80);}
 function sound(type='play') {if(!audioEnabled)return;try{const context=new (window.AudioContext||window.webkitAudioContext)();const o=context.createOscillator();const g=context.createGain();o.connect(g);g.connect(context.destination);o.type='sine';o.frequency.setValueAtTime(type==='win'?640:420,context.currentTime);o.frequency.exponentialRampToValueAtTime(type==='win'?990:260,context.currentTime+.13);g.gain.setValueAtTime(.08,context.currentTime);g.gain.exponentialRampToValueAtTime(.001,context.currentTime+.16);o.start();o.stop(context.currentTime+.17);setTimeout(()=>context.close(),380);}catch{}}
 function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('visible');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>el.classList.remove('visible'),3000);}
-function header() {return `<header class="topbar"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">CREATED BY SYAM <span class="version-mark">V1.4.1</span></div></div></div><div class="top-actions"><button class="pill" data-action="rules">ⓘ &nbsp;How to play</button><button class="pill" data-action="sound">${audioEnabled?'♫ Sound on':'♪ Sound off'}</button><div class="voice-anchor"><button class="pill voice-trigger ${voiceStream?'voice-live':''}" data-action="voice-menu" aria-controls="voicePopover" aria-expanded="${voiceMenuOpen}" aria-label="Voice chat and announcer settings">${voiceStream?(voiceMuted?'🔇 Voice muted':'🎙️ Voice on'):'🎙️ Voice'}</button>${voiceMenuOpen?voicePanel(screen==='room'?currentView:null):''}</div>${screen!=='home'?'<button class="pill" data-action="home">⌂ &nbsp;Home</button>':''}</div></header>`;}
+function header() {return `<header class="topbar"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">CREATED BY SYAM <span class="version-mark">V1.5</span></div></div></div><div class="top-actions"><button class="pill" data-action="rules">ⓘ &nbsp;How to play</button><button class="pill" data-action="sound">${audioEnabled?'♫ Sound on':'♪ Sound off'}</button><div class="voice-anchor"><button class="pill voice-trigger ${voiceStream?'voice-live':''}" data-action="voice-menu" aria-controls="voicePopover" aria-expanded="${voiceMenuOpen}" aria-label="Voice chat and announcer settings">${voiceStream?(voiceMuted?'🔇 Voice muted':'🎙️ Voice on'):'🎙️ Voice'}</button>${voiceMenuOpen?voicePanel(screen==='room'?currentView:null):''}</div>${screen!=='home'?'<button class="pill" data-action="home">⌂ &nbsp;Home</button>':''}</div></header>`;}
 function footer(){return '<footer class="footer">7Cards Games • Made with ♥ by Syam • Play fair, play together • No real-money betting</footer>';}
 function homeView() {const saved=getSavedSolo();return `
 <section class="hero surface"><div><div class="eyebrow">✦ The classic game of Sevens</div><h1>One card.<br><em>Endless fun.</em></h1><p class="lead">Start with the <b>7 of Hearts</b>. Build every suit up and down. Outsmart your friends or battle clever bots. Lowest score wins!</p><div class="hero-actions"><button class="btn primary" data-action="solo">🤖 &nbsp;Play with bots</button><button class="btn secondary" data-action="host">♣ &nbsp;Play with friends</button><button class="btn tertiary" data-action="join-screen">↗ &nbsp;Join room</button>${saved?'<button class="btn tertiary" data-action="resume">↺ Resume solo game</button>':''}</div></div><div class="hero-art" aria-hidden="true"><div class="floatcard second"><span>7♠</span><b>♠</b><span>7</span></div><div class="floatcard third"><span>8♦</span><b>♦</b><span>8</span></div><div class="floatcard first"><span>7♥</span><b>♥</b><span>7</span></div></div></section>
 <div class="subgrid"><div class="feature surface"><strong>🃏 Simple rules, real strategy</strong><p>52 cards, four suits, one winner. Everyone gets a turn.</p></div><div class="feature surface"><strong>🔗 Your private table</strong><p>Create a room and send your friends an invite link.</p></div><div class="feature surface"><strong>🏆 Unlimited rounds</strong><p>Play as many rounds as you want. End the match when ready.</p></div></div>`;}
 function friendsView() {return `<section class="setup surface"><div class="section-header"><h2>Create a friends room ♣</h2><button class="smallbtn" data-action="home">← Back</button></div><p class="setup-intro">Open your own private card table, invite friends using a shareable link, and optionally add bots before you begin. Play unlimited rounds and end the match whenever your group is ready.</p><div class="field"><label for="yourName">Your player name</label><input id="yourName" maxlength="22" value="${html(playerName)}" placeholder="Your name"></div><div class="setup-buttons"><button class="btn primary" data-action="create-online">🔗 Create private room →</button><button class="btn secondary" data-action="join-screen">Join someone else’s room</button></div><p class="hint">The host browser stays open during the match. Use a hosted HTTPS link for online multiplayer.</p></section>`;}
-function joinView() {return `<section class="setup surface"><div class="section-header"><h2>Join the table ♠</h2><button class="smallbtn" data-action="home">← Back</button></div><p class="setup-intro">Join your friends using their invite link or 6-character room code. Everyone plays in their own browser.</p>${gameCode?`<div class="join-banner">🔗 <div><strong>You've been invited!</strong><div class="muted">Room: ${html(gameCode)}</div></div></div>`:''}<div class="field"><label for="yourName">Your player name</label><input id="yourName" maxlength="22" value="${html(playerName)}" placeholder="Your name"></div><div class="field"><label for="joinCode">Room code</label><input id="joinCode" maxlength="8" style="letter-spacing:3px;text-transform:uppercase" value="${html(gameCode)}" placeholder="ABC123"></div><div class="setup-buttons"><button class="btn primary" data-action="join">Join room →</button><button class="btn tertiary" data-action="solo">Play bots instead</button></div><p class="hint">The room host needs to stay online while everyone plays. Online mode requires an internet connection.</p></section>`;}
+function joinView() {return `<section class="setup surface"><div class="section-header"><h2>Join the table ♠</h2><button class="smallbtn" data-action="home">← Back</button></div><p class="setup-intro">Join your friends using their invite link or 6-character room code. Everyone plays in their own browser.</p>${gameCode?`<div class="join-banner">🔗 <div><strong>You've been invited!</strong><div class="muted">Room: ${html(gameCode)}</div></div></div>`:''}<div class="field"><label for="yourName">Your player name</label><input id="yourName" maxlength="22" value="${html(playerName)}" placeholder="Your name"></div><div class="field"><label for="joinCode">Room code</label><input id="joinCode" maxlength="8" style="letter-spacing:3px;text-transform:uppercase" value="${html(gameCode)}" placeholder="ABC123"></div><div class="setup-buttons"><button class="btn primary" data-action="join">Join room →</button><button class="btn tertiary" data-action="solo">Play bots instead</button></div>${lastError?`<p class="hint" style="color:#ffd4ab;font-weight:800">⚠️ ${html(lastError)}</p>`:''}<p class="hint">The room host needs to stay online while everyone plays. Online mode requires an internet connection.</p></section>`;}
 function loadingView(){return `<section class="setup surface loading"><div class="spinner"></div><h2>${html(loadingMessage||'Connecting...')}</h2><p class="muted">${html(lastError||'Connecting players securely through the online room service.')}</p><button class="btn tertiary" data-action="home">Cancel</button></section>`;}
 function playerChip(p,idx) {const active=currentView.game&&currentView.game.turnId===p.id;return `<div class="player ${active?'active':''} ${p.id===myId?'me':''}"><div class="player-name">${p.isBot?BOT_EMOJIS[idx%BOT_EMOJIS.length]:'👤'} ${html(p.name)} ${p.id===myId?'(You)':''}</div><div class="player-stat"><span>🃏 ${p.cardCount} cards</span><span>${active?'<span class="player-dot">● TURN</span>':p.isBot?'BOT':p.online?'ONLINE':'AUTO BOT'}</span></div></div>`;}
 function lobbyView(){const v=currentView;return `<section class="setup surface" style="max-width:900px"><div class="section-header"><h2>${isSolo?'Play with bots 🤖':'Private game lobby ♣'}</h2><span class="tag accent">${v.players.length}/8 players</span></div><p class="setup-intro">${isSolo?'Choose how many bots to face, then start the match.':'Invite friends to your private table. You can also add bots to fill empty seats.'}</p>${!isSolo?`<div class="invite"><div><small>ROOM CODE</small><div class="room-code">${html(v.code)}</div></div><div class="invite-actions"><button class="btn primary" data-action="copy">⧉ Copy link</button><button class="btn tertiary" data-action="share">↗ Share</button></div></div>`:''}
@@ -103,16 +106,103 @@ function getView(pid){const r=hostRoom;const g=r.game,player=r.seats.find(p=>p.i
 function saveSolo(){if(hostRoom?.solo){try{store.setItem('syam7-solo-v1',JSON.stringify(hostRoom));}catch{}}}
 function broadcast(){if(!hostRoom)return;currentView=getView(hostRoom.owner);screen='room';saveSolo();render();for(const [pid,c] of conns){if(c.open)try{c.send({type:'state',view:getView(pid)});}catch{}};scheduleBot();}
 function setupLocal(){stopNetwork();const name=saveName();role='host';isSolo=true;hostRoom=makeRoom('SOLO',true,name);myId=hostRoom.owner;addBot();addBot();broadcast();}
-function stopNetwork(){stopVoice(false);clearTimeout(botTimeout);clearTimeout(joinTimeout);try{guestConn?.close()}catch{};try{peer?.destroy()}catch{};peer=null;guestConn=null;conns=new Map();hostRoom=null;currentView=null;role='';myId='';isSolo=false;}
-function saveName(){const name=($('#yourName')?.value||playerName||'Player').trim().slice(0,22)||'Player';playerName=name;store.setItem('syam7-name',name);return name;}
-function createOnline(){const name=saveName();stopNetwork();if(!window.Peer){toast('Online library failed to load. Try again with internet.');return;}
- const code=randCode();gameCode=code;role='host';isSolo=false;hostRoom=makeRoom(code,false,name);myId=hostRoom.owner;screen='loading';loadingMessage='Creating your friend room…';lastError='';render();
- peer=new Peer('7cards-syam-'+code.toLowerCase(),{debug:0});
- peer.on('open',()=>{hostRoom.seats[0].peerId=peer.id;setRoute(location.pathname+'?room='+code);logSystem('Room created. Invite your friends!');broadcast();});
- peer.on('connection',c=>attachGuest(c));
-  peer.on('call',receiveVoiceCall);
- peer.on('error',err=>{lastError=err.message||'Unable to connect to multiplayer service';toast('Could not create room: '+lastError);if(screen==='loading'){stopNetwork();screen='home';render();}});
+
+function stopNetwork(){
+  stopVoice(false);
+  clearTimeout(botTimeout); clearTimeout(joinTimeout);
+  const ws=relaySocket; relaySocket=null;
+  if(ws){ws.onmessage=null;ws.onclose=null;ws.onerror=null;try{ws.close();}catch{}}
+  for(const c of relayPeers.values())try{c.disconnected();}catch{}
+  relayPeers.clear();
+  try{guestConn?.close();}catch{}
+  try{peer?.destroy();}catch{}
+  peer=null;guestConn=null;conns=new Map();hostRoom=null;currentView=null;role='';myId='';isSolo=false;
 }
+function relaySend(ws, message){
+  if(ws?.readyState!==WebSocket.OPEN)return false;
+  try{ws.send(JSON.stringify(message));return true;}catch{return false;}
+}
+function makeRelayGuestConnection(ws, channel){
+  const handlers={data:[],close:[],error:[]};
+  let active=true;
+  const emit=(event,value)=>{for(const fn of handlers[event]||[])try{fn(value);}catch(e){console.warn(e);}};
+  const c={
+    peer:'relay-'+channel,
+    get open(){return active && relaySocket===ws && ws.readyState===WebSocket.OPEN;},
+    on(event,fn){if(handlers[event])handlers[event].push(fn);return c;},
+    send(data){if(c.open)relaySend(ws,{type:'relay',channel,data});},
+    close(){if(!active)return;active=false;relayPeers.delete(channel);relaySend(ws,{type:'kick',channel});emit('close');},
+    deliver(data){if(active)emit('data',data);},
+    disconnected(){if(!active)return;active=false;relayPeers.delete(channel);emit('close');}
+  };
+  return c;
+}
+function initVoicePeer(){
+  if(peer||!window.Peer||isSolo)return;
+  try{
+    peer=new Peer(undefined,{debug:0});
+    peer.on('call',receiveVoiceCall);
+    peer.on('open',()=>{
+      if(role==='host'&&hostRoom){
+        const me=hostRoom.seats.find(x=>x.id===myId);
+        if(me){me.peerId=peer.id;broadcast();}
+      }else if(role==='guest'&&guestConn?.open){
+        guestConn.send({type:'voice-state',enabled:!!voiceStream,muted:voiceMuted,peerId:peer.id});
+      }
+    });
+    peer.on('error',err=>console.warn('Optional voice signaling unavailable:',err?.type||err));
+  }catch(e){console.warn('Voice service unavailable:',e);}
+}
+
+function saveName(){const name=($('#yourName')?.value||playerName||'Player').trim().slice(0,22)||'Player';playerName=name;store.setItem('syam7-name',name);return name;}
+
+function createOnline(){
+  const name=saveName();stopNetwork();
+  const code=randCode();gameCode=code;role='host';isSolo=false;
+  hostRoom=makeRoom(code,false,name);myId=hostRoom.owner;
+  screen='loading';loadingMessage='Creating friends room…';lastError='Connecting to the room service';render();
+  const ws=new WebSocket(RELAY_URL);relaySocket=ws;
+  joinTimeout=setTimeout(()=>{
+    if(relaySocket===ws&&screen==='loading'){
+      const message='Room server did not respond. Please try again.';
+      stopNetwork();screen='friends';lastError=message;render();toast(message);
+    }
+  },65000);
+  ws.onopen=()=>relaySend(ws,{type:'create',code});
+  ws.onmessage=event=>{
+    if(relaySocket!==ws)return;
+    let m;try{m=JSON.parse(event.data);}catch{return;}
+    if(m.type==='created'){
+      clearTimeout(joinTimeout);
+      setRoute(location.pathname+'?room='+code);
+      logSystem('Room created! Share the invite link. Keep this tab open.');
+      broadcast();
+      initVoicePeer();
+    }else if(m.type==='guest-open'){
+      const channel=String(m.channel||'');
+      if(!channel||relayPeers.has(channel))return;
+      const c=makeRelayGuestConnection(ws,channel);
+      relayPeers.set(channel,c);
+      attachGuest(c);
+      relaySend(ws,{type:'guest-ready',channel});
+    }else if(m.type==='guest-close'){
+      relayPeers.get(String(m.channel||''))?.disconnected();
+    }else if(m.type==='data'){
+      relayPeers.get(String(m.channel||''))?.deliver(m.data);
+    }else if(m.type==='error'){
+      const message=m.message||'Cannot create friends room.';
+      if(screen==='loading'){stopNetwork();screen='friends';lastError=message;render();}
+      toast(message);
+    }
+  };
+  ws.onerror=()=>{lastError='Room service connection failed. Check your network.';};
+  ws.onclose=()=>{
+    if(relaySocket!==ws)return;
+    const message=lastError||'Room server disconnected. Create another room.';
+    stopNetwork();screen='friends';lastError=message;render();toast(message);
+  };
+}
+
 function attachGuest(c){let pid=null;c.on('data',m=>{
  if(!m||typeof m!=='object')return;
  if(m.type==='join'){
@@ -123,20 +213,63 @@ function attachGuest(c){let pid=null;c.on('data',m=>{
    if(hostRoom.seats.length>=8){c.send({type:'error',message:'This table is full (8 players).'});return;}
    seat={id,name,isBot:false,score:0,connected:true,isHost:false};hostRoom.seats.push(seat);logSystem(name+' joined the room.');
   } else {seat.connected=true;logSystem(seat.name+' reconnected.');}
-  pid=seat.id;seat.peerId=c.peer;seat.voiceOn=false;seat.voiceMuted=false;const previous=conns.get(pid);if(previous&&previous!==c)try{previous.close()}catch{};conns.set(pid,c);c.send({type:'joined',id:pid});broadcast();return;
+  pid=seat.id;seat.peerId=c.peer?.startsWith('relay-')?null:c.peer;seat.voiceOn=false;seat.voiceMuted=false;const previous=conns.get(pid);if(previous&&previous!==c)try{previous.close()}catch{};conns.set(pid,c);c.send({type:'joined',id:pid});broadcast();return;
  }
  if(!pid)return;
  handleAction(pid,m);
 });c.on('close',()=>{if(pid&&conns.get(pid)===c){conns.delete(pid);const p=hostRoom?.seats.find(x=>x.id===pid);if(p){p.connected=false;p.voiceOn=false;p.voiceMuted=false;p.peerId=null;logSystem(p.name+' disconnected. Auto-bot will cover their turns.');broadcast();}}});c.on('error',()=>{});}
-function joinOnline(){const name=saveName();const code=String($('#joinCode')?.value||gameCode).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);if(code.length<6){toast('Enter a 6-character room code.');return;}if(!window.Peer){toast('Online library failed to load. Check internet.');return;}
- stopNetwork();gameCode=code;role='guest';isSolo=false;screen='loading';loadingMessage='Joining room '+code+'…';lastError='';render();
- let token=store.getItem('syam7-token-'+code);if(!token||!token.startsWith('p-')){token='p-'+uid();store.setItem('syam7-token-'+code,token);}myId=token;
- peer=new Peer(undefined,{debug:0});
- peer.on('call',receiveVoiceCall);
-  peer.on('open',()=>{guestConn=peer.connect('7cards-syam-'+code.toLowerCase(),{reliable:true});guestConn.on('open',()=>{clearTimeout(joinTimeout);guestConn.send({type:'join',token,name});});guestConn.on('data',m=>{if(m?.type==='joined'){myId=m.id;setRoute(location.pathname+'?room='+code);return;}if(m?.type==='state'){currentView=m.view;screen='room';render();return;}if(m?.type==='error'){toast(m.message);stopNetwork();screen='join';render();}});guestConn.on('close',()=>{if(role==='guest'){toast('Disconnected from host. Rejoin using the same code.');screen='join';render();}});guestConn.on('error',()=>{toast('Unable to join. Try again.');});});
- peer.on('error',err=>{toast(err.type==='peer-unavailable'?'Room not found. Ask host to open their room.':'Online connection error: '+(err.type||'unknown'));stopNetwork();screen='join';render();});
- joinTimeout=setTimeout(()=>{if(screen==='loading'){toast('Connection timed out. Ensure host has the room open.');stopNetwork();screen='join';render();}},16000);
+
+function joinOnline(){
+  const name=saveName();
+  const code=String($('#joinCode')?.value||gameCode).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
+  if(code.length<6){toast('Enter a 6-character room code.');return;}
+  stopNetwork();gameCode=code;role='guest';isSolo=false;screen='loading';
+  loadingMessage='Joining room '+code+'…';lastError='Checking the invite link and room host';render();
+  let token=store.getItem('syam7-token-'+code);
+  if(!token||!token.startsWith('p-')){token='p-'+uid();store.setItem('syam7-token-'+code,token);}
+  myId=token;
+  const ws=new WebSocket(RELAY_URL);relaySocket=ws;
+  guestConn={
+    get open(){return relaySocket===ws&&ws.readyState===WebSocket.OPEN;},
+    send(data){relaySend(ws,{type:'relay',data});},
+    close(){try{ws.close();}catch{}}
+  };
+  joinTimeout=setTimeout(()=>{
+    if(relaySocket===ws&&screen==='loading'){
+      const message='Connection timed out. The server may be waking up, or the host has left. Try again.';
+      stopNetwork();screen='join';lastError=message;render();toast(message);
+    }
+  },65000);
+  ws.onopen=()=>relaySend(ws,{type:'join',code});
+  ws.onmessage=event=>{
+    if(relaySocket!==ws)return;
+    let m;try{m=JSON.parse(event.data);}catch{return;}
+    if(m.type==='connected'){
+      guestConn.send({type:'join',token,name});
+      initVoicePeer();
+    }else if(m.type==='data'){
+      const data=m.data;
+      if(data?.type==='joined'){
+        myId=data.id;setRoute(location.pathname+'?room='+code);
+      }else if(data?.type==='state'){
+        clearTimeout(joinTimeout);currentView=data.view;screen='room';lastError='';render();
+      }else if(data?.type==='error'){
+        const message=data.message||'Cannot join this room.';
+        stopNetwork();screen='join';lastError=message;render();toast(message);
+      }
+    }else if(m.type==='error'){
+      const message=m.message||'This room cannot be reached.';
+      stopNetwork();screen='join';lastError=message;render();toast(message);
+    }
+  };
+  ws.onerror=()=>{lastError='Room network connection failed. Check your internet and retry.';};
+  ws.onclose=()=>{
+    if(relaySocket!==ws)return;
+    const message=lastError||'Disconnected from the room. Ask the host to keep the tab open.';
+    stopNetwork();screen='join';lastError=message;render();toast(message);
+  };
 }
+
 function addBot(){if(!hostRoom||hostRoom.seats.length>=8||hostRoom.phase!=='lobby')return false;const botCount=hostRoom.seats.filter(p=>p.isBot).length;const name=BOT_NAMES[botCount%BOT_NAMES.length];hostRoom.seats.push({id:'bot-'+uid(),name,isBot:true,score:0,connected:true,isHost:false});return true;}
 function startRound(){if(!hostRoom||hostRoom.seats.length<2)return;const r=hostRoom;const deck=shuffle(allCards());const hands=Object.fromEntries(r.seats.map(p=>[p.id,[]]));deck.forEach((card,i)=>hands[r.seats[i%r.seats.length].id].push(card));const starterIndex=r.seats.findIndex(p=>hands[p.id].some(c=>c.suit==='H'&&c.rank===7));r.roundIndex++;r.phase='playing';r.lastRound=null;r.game={hands,board:{H:null,D:null,C:null,S:null},turnIndex:starterIndex,turnId:r.seats[starterIndex].id,lastCard:null,lastAction:'7♥ must be played first.'};logSystem('Round '+r.roundIndex+' started! '+r.seats[starterIndex].name+' holds 7♥.');broadcast();}
 function completeRound(winner){const r=hostRoom,g=r.game;const points={};for(const p of r.seats){const earned=g.hands[p.id].reduce((n,c)=>n+rankPoints(c),0);p.score+=earned;points[p.id]=earned;}
@@ -148,7 +281,7 @@ function passTurn(pid){const r=hostRoom,g=r?.game;if(!g||r.phase!=='playing'||tu
 function scheduleBot(){clearTimeout(botTimeout);if(!hostRoom||hostRoom.phase!=='playing')return;const p=turnPlayer(hostRoom);if(!p||(!p.isBot&&p.connected))return;botTimeout=setTimeout(()=>{if(!hostRoom||hostRoom.phase!=='playing'||turnPlayer(hostRoom)?.id!==p.id)return;const legal=legalMoves(hostRoom.game.hands[p.id],hostRoom.game.board);if(!legal.length)passTurn(p.id);else {const scored=legal.map(c=>({c,score:c.rank+(c.rank===7?3:0)+Math.random()*5})).sort((a,b)=>b.score-a.score);playCard(p.id,scored[0].c);}},p.isBot?650:4800);}
 function handleAction(pid,m){const r=hostRoom;if(!r||!m||typeof m!=='object')return;
  if(m.type==='play'){if(typeof m.card==='string'){const x=/^([HDCS])(1[0-3]|[1-9])$/.exec(m.card);if(x)playCard(pid,{suit:x[1],rank:Number(x[2])});}}else if(m.type==='pass')passTurn(pid);
- else if(m.type==='voice-state'){const p=r.seats.find(x=>x.id===pid&&x.connected&&!x.isBot);if(!p)return;p.voiceOn=!!m.enabled;p.voiceMuted=!!m.muted;broadcast();}
+ else if(m.type==='voice-state'){const p=r.seats.find(x=>x.id===pid&&x.connected&&!x.isBot);if(!p)return;p.voiceOn=!!m.enabled;p.voiceMuted=!!m.muted;if(typeof m.peerId==='string'&&m.peerId.length<100)p.peerId=m.peerId;broadcast();}
  else if(m.type==='chat'){const p=r.seats.find(x=>x.id===pid);if(!p)return;const str=String(m.text||'').trim().slice(0,140);if(!str)return;r.chat.push({name:p.name,text:str,system:false});r.chat=r.chat.slice(-80);broadcast();}
 }
 function hostControl(action,param){if(role!=='host'||!hostRoom)return;const r=hostRoom;
@@ -177,7 +310,7 @@ function announceMove(){
 }
 function voiceStateChanged(){
  if(role==='host'&&hostRoom){const me=hostRoom.seats.find(x=>x.id===myId);if(me){me.voiceOn=!!voiceStream;me.voiceMuted=voiceMuted;}broadcast();}
- else if(role==='guest'&&guestConn?.open){guestConn.send({type:'voice-state',enabled:!!voiceStream,muted:voiceMuted});}
+ else if(role==='guest'&&guestConn?.open){guestConn.send({type:'voice-state',enabled:!!voiceStream,muted:voiceMuted,peerId:peer?.id||null});}
 }
 function detachVoiceCall(remoteId,call){
  if(voiceCalls.get(remoteId)!==call)return;

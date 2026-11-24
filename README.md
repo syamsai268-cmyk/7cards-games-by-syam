@@ -1,11 +1,14 @@
-# 7Cards Games — By Syam v1.4.1
+# 7Cards Games — By Syam (v1.5)
 
-## Fix: Voice button on mobile
+## Friends room connection fix
 
-The previous mobile CSS rule hid the Voice button because it matched the first child inside a wrapper. It now targets only the How to Play button. On small phones the header puts Sound, Voice and Home together in a clear second row.
+Online card-game messages now use a dedicated WebSocket relay instead of peer-to-peer data channels. This avoids many cross-network/mobile NAT errors. Human players still join by the same private link; the room host must keep the game tab open. If the room is unavailable or has ended, the join screen displays a clear error instead of an endless spinner.
 
-Press **Voice** to open the microphone panel. Human-to-human speaking is available in private friend rooms after each participant taps Join voice and grants microphone access. For games against bots, the optional Announce card moves toggle reads card moves aloud; the bots cannot hold a real spoken conversation.
+- Game website: https://sevencards-games-by-syam.onrender.com
+- WebSocket relay: https://sevencards-room-relay-syam.onrender.com/health
+- Relay WebSocket endpoint: wss://sevencards-room-relay-syam.onrender.com/ws
+- 52 cards, 7♥ starts, unlimited rounds, lowest penalty wins
+- Sound and Voice controls on mobile remain visible
+- Voice chat still uses separate PeerJS media calls and requires microphone permission; some mobile networks may restrict those calls. Game-room connectivity does not depend on voice service.
 
-Matches still have unlimited rounds. The host can end the match at any time. Lowest accumulated penalty wins.
-
-Live website: https://sevencards-games-by-syam.onrender.com
+To validate: `npm install`, `npm test`, and `node scripts/check-release.mjs`.

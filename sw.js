@@ -1,5 +1,5 @@
-// 7Cards Games by Syam - v1.4.1; network-first prevents stale versions after CI/CD.
-const CACHE = '7cards-syam-v1.4.1';
+// 7Cards Games by Syam - v1.5.0; network-first prevents stale versions after CI/CD.
+const CACHE = '7cards-syam-v1.5.0';
 const ASSETS = ['./','./index.html','./styles.css?v=1.4.0','./app.js?v=1.4.0','./favicon.svg','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

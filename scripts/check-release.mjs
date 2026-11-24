@@ -1,4 +1,4 @@
-// 7Cards Games v1.4.1: zero-dependency CI checks. Run: node scripts/check-release.mjs
+// 7Cards Games v1.5.0: zero-dependency CI checks. Run: node scripts/check-release.mjs
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
@@ -11,9 +11,9 @@ const html=readFileSync(resolve(root,'index.html'),'utf8');
 const css=readFileSync(resolve(root,'styles.css'),'utf8');
 const code=readFileSync(resolve(root,'app.js'),'utf8');
 const sw=readFileSync(resolve(root,'sw.js'),'utf8');
-assert.match(html,/7Cards Games v1\.4\.1/);
-assert.match(html,/styles\.css\?v=1\.4\.1/);
-assert.match(html,/app\.js\?v=1\.4\.1/);
+assert.match(html,/7Cards Games v1\.5\.0/);
+assert.match(html,/styles\.css\?v=1\.5\.0/);
+assert.match(html,/app\.js\?v=1\.5\.0/);
 assert.match(css,/\.suit-name\.suit-H/);
 assert.match(css,/\.suit-name\.suit-D/);
 assert.match(css,/\.suit-name\.suit-C/);
@@ -22,7 +22,7 @@ assert.match(css,/\.voice-anchor/);
 assert.match(code,/getUserMedia/);
 assert.match(code,/peer\.call\(/);
 assert.match(code,/call\.answer\(voiceStream\)/);
-assert.match(sw,/7cards-syam-v1\.4\.1/);
+assert.match(sw,/7cards-syam-v1\.5\.0/);
 
 // Execute the actual game JavaScript with a small browser DOM stub and test its exported rules.
 const eventTarget=()=>({innerHTML:'',textContent:'',classList:{add(){},remove(){}},addEventListener(){},showModal(){},close(){},scrollTop:0});
@@ -62,9 +62,13 @@ assert.match(app.innerHTML,/class="suit-name suit-D"/);
 assert.match(app.innerHTML,/class="suit-name suit-C"/);
 assert.match(app.innerHTML,/class="suit-name suit-S"/);
 
-console.log('✓ v1.4.1: file structure, stylesheet, voice controls, SW version, game rules and author verified');
+console.log('✓ v1.5.0: file structure, stylesheet, voice controls, SW version, game rules and author verified');
 
 // Regression: first-child selector must not hide the wrapped Voice button on phones.
 assert.doesNotMatch(css,/\.top-actions \.pill:first-child\{display:none\}/);
 assert.match(css,/\.top-actions > \.pill\[data-action="rules"\]\{display:none\}/);
 assert.match(css,/\.topbar \.top-actions \.voice-trigger/);
+
+assert.match(code,/const RELAY_URL = 'wss:\/\//,'Hosted WebSocket room relay must be used');
+assert.match(code,/new WebSocket\(RELAY_URL\)/,'Host and guest must use relay');
+assert.doesNotMatch(code,/peer\.connect\(/,'No WebRTC game data-channel dependency');

@@ -1,4 +1,4 @@
 7Cards Games — By Syam
-Version: 1.5.0
-Release: Reliable WebSocket multiplayer relay instead of WebRTC data channels. Shared invites, explicit errors, voice settings and unlimited rounds.
+Version: 1.6.0
+Release: Voice uses WebSocket microphone audio instead of unreliable direct WebRTC on mobile networks. Test speaker, mute and unlimited rounds.
 Website: https://sevencards-games-by-syam.onrender.com

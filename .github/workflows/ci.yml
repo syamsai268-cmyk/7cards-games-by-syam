@@ -1,4 +1,4 @@
-name: 7Cards CI - validate v1.4.1
+name: 7Cards CI - multiplayer v1.5
 on:
   push:
     branches: [main]
@@ -8,7 +8,7 @@ permissions:
   contents: read
 jobs:
   validate:
-    name: Validate game release
+    name: Validate multiplayer and game release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -17,12 +17,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Check app syntax
-        run: node --check app.js
-      - name: Check service worker syntax
-        run: node --check sw.js
-      - name: Verify game rules and v1.4.1 assets
+      - name: Install room relay dependencies
+        run: npm install --no-audit --no-fund
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.js
+          node --check sw.js
+          node --check relay-server.js
+      - name: Test two-player WebSocket connection
+        run: npm test
+      - name: Test card rules, cache version, and game controls
         run: node scripts/check-release.mjs
-# CD: the existing Render static site is linked to the GitHub 'main' branch,
-# with Render Auto Deploy set to 'On Commit'. Pushes to main trigger Render deployment.
-# For CI-gated CD, change Render Auto Deploy to 'After CI Checks Pass' in dashboard.

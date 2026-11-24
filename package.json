@@ -1,0 +1,17 @@
+{
+  "name": "7cards-room-relay",
+  "version": "1.5.0",
+  "private": true,
+  "description": "WebSocket room relay for 7Cards Games by Syam",
+  "main": "relay-server.js",
+  "scripts": {
+    "start": "node relay-server.js",
+    "test": "node --test tests/multiplayer.test.cjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}

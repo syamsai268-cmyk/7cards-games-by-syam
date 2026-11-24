@@ -1,4 +1,4 @@
 7Cards Games — By Syam
-Version: 1.4.0
-Release: Voice chat relocated beside Sound, unlimited rounds and host-controlled match ending.
+Version: 1.4.1
+Release: Mobile Voice button visibility fixed. Sound, Voice and Home stay accessible on phones; unlimited rounds retained.
 Website: https://sevencards-games-by-syam.onrender.com

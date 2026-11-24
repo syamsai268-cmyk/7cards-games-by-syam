@@ -1,14 +1,16 @@
-# 7Cards Games — By Syam (v1.5)
+# 7Cards Games — By Syam v1.6
 
-## Friends room connection fix
+## Friends voice fix
+Version 1.6 replaces PeerJS browser-to-browser audio with low-latency 16 kHz 8-bit mu-law microphone packets through the private room WebSocket relay. This does not require WebRTC NAT traversal or TURN servers. Audio is sent only while the microphone is enabled and is not recorded by the game.
 
-Online card-game messages now use a dedicated WebSocket relay instead of peer-to-peer data channels. This avoids many cross-network/mobile NAT errors. Human players still join by the same private link; the room host must keep the game tab open. If the room is unavailable or has ended, the join screen displays a clear error instead of an endless spinner.
+**How to test on two phones:**
+1. Both players open the new game version and join the same freshly created room.
+2. Each taps **Voice → Join voice**, and allows microphone access.
+3. Each taps **Test speaker** and checks the phone **media volume**.
+4. Speak; the receiving phone should show **Receiving voice audio** in the Voice panel.
+5. Tap Mute to stop sending, or Leave voice to stop capturing and receiving.
 
-- Game website: https://sevencards-games-by-syam.onrender.com
-- WebSocket relay: https://sevencards-room-relay-syam.onrender.com/health
-- Relay WebSocket endpoint: wss://sevencards-room-relay-syam.onrender.com/ws
-- 52 cards, 7♥ starts, unlimited rounds, lowest penalty wins
-- Sound and Voice controls on mobile remain visible
-- Voice chat still uses separate PeerJS media calls and requires microphone permission; some mobile networks may restrict those calls. Game-room connectivity does not depend on voice service.
+Use headphones to prevent feedback. Do not close or background the host's room tab. The room relay runs on Render's free web-service plan, so after being idle it may need to wake up. Real-world device and carrier behavior still need to be confirmed.
 
-To validate: `npm install`, `npm test`, and `node scripts/check-release.mjs`.
+Game: https://sevencards-games-by-syam.onrender.com
+Room relay: https://sevencards-room-relay-syam.onrender.com/health

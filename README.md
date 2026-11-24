@@ -1,58 +1,49 @@
-# 7Cards Games — By Syam (v1.1.0)
+# 7Cards Games — By Syam (v1.2.0)
 
-Play Sevens with friends (private invite links) or bots, using 52 cards and 5–100 rounds. The **7♥ starts**, suits build down to Ace and up to King, and the lowest cumulative penalty wins.
+A 52-card Sevens game for 2–8 players, with bots, private online rooms, 5–100 round scoring, in-room voice chat, chat, and leaderboard. No money involved.
 
-**Live website:** https://sevencards-games-by-syam.onrender.com
+## v1.2 — played-card face fix
 
-## What's new in v1.1
+- On the **table**, played cards show **rank and their real suit symbol**: 6♥, 7♦, 8♣, Q♠ etc.
+- The table faces use the **exact same suit ink colors** as the cards in your hand: hearts pink-red, diamonds magenta, clubs green, spades navy.
+- A placed card looks like a miniature real playing card, rather than a plain number.
+- The last played card glows. Unplayed slots stay empty/dark.
+- On narrow screens, swipe the board sideways to see all 13 ranks at readable size.
+- Retains opt-in voice chat and speech announcer from v1.1.
+- v1.2.0 CSS/JS asset URLs + service worker cache to minimize old cached screens.
 
-- All four suit symbols are bright, labeled and distinguishable at the table.
-- Cards in your hand remain legible even when it isn't your turn.
-- Table slots identify which cards have been played, with clear rank and mini suit symbol.
-- Friends-only **live voice chat**: click **Join voice**, approve microphone access, click **Mute mic** or **Leave voice** at any time. Voice only works for people currently connected to the same room. Bots cannot talk.
-- Optional **Speak card moves and turns** browser text-to-speech announcer.
-- Service worker cache updated; CSS and JS have version query parameters to encourage fresh loads.
-- GitHub Actions CI checks syntax, file integrity and the Sevens game rules.
+## Existing repository and website
 
-## Deploying v1.1 to your existing Render site
+- GitHub: https://github.com/syamsai268-cmyk/7cards-games-by-syam
+- Render: https://sevencards-games-by-syam.onrender.com
+- Render service is linked to the `main` branch with auto-deploy on commit.
 
-**Do not create a new Render service.** The existing static site already tracks `main` with auto-deploy on every commit.
+## Update from Windows PowerShell
 
-### Easy: GitHub website
+1. Extract the v1.2 ZIP completely.
+2. Verify Git is available: `git --version` (restart PowerShell if just installed).
+3. Configure Git identity once with your own GitHub email:
+   `git config --global user.name "Syam Sai"`
+   `git config --global user.email "your-github-email@example.com"`
+4. Run the included script from any directory:
 
-1. Extract `7cards-games-by-syam-v1.1.zip` on your computer.
-2. Visit https://github.com/syamsai268-cmyk/7cards-games-by-syam
-3. Choose **Add file → Upload files**.
-4. Drag the **contents** of the extracted folder into GitHub. Include all root files AND the `.github/workflows/ci.yml` and `scripts/check-release.mjs` paths. Existing filenames must be overwritten/committed. Do not upload the ZIP itself.
-5. Choose **Commit directly to main**, message `Release v1.1 - color and voice chat`, then **Commit changes**.
-6. Check GitHub **Actions** for the `7Cards CI - validate v1.1` job and [Render deploys](https://dashboard.render.com/static/srv-dc254lnf3r2c73ebqns0). Render's **On Commit** mode deploys independently of the CI check result; switch Render Auto Deploy to **After CI Checks Pass** for gated deployment.
-7. Open https://sevencards-games-by-syam.onrender.com and refresh (Ctrl+Shift+R if old assets are cached).
+   `powershell.exe -ExecutionPolicy Bypass -File "C:\Users\NIV-HAR-0798\Downloads\7cards-games-by-syam-v1.2\Update-GitHub-v1.2.ps1"`
 
-### PowerShell: one command
+   If extracted elsewhere, use the actual script path.
+5. Git may ask for GitHub sign-in. Complete it.
+6. After a successful `git push`, Render starts the deployment to the SAME website URL. Check its dashboard for `Live`.
+7. Refresh the site (Ctrl+Shift+R), especially after a service worker update.
 
-If Git for Windows is installed, open PowerShell in this extracted directory, then run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\Update-GitHub-v1.1.ps1
-```
-
-The script clones your existing repository in a uniquely named temporary folder, replaces the selected game files, commits, and pushes to `main`. Git credentials are handled by Git Credential Manager; the script does not request/store a token.
+Alternative: upload all extracted files and the `.github` folder to the root of the existing GitHub repository on `main`; choose to replace existing files and commit.
 
 ## Tests
 
-Requires Node.js 22+:
+`node --check app.js`
+`node --check sw.js`
+`node scripts/check-release.mjs`
 
-```bash
-node --check app.js
-node --check sw.js
-node scripts/check-release.mjs
-```
+GitHub Actions runs these checks on pushes. Render currently deploys **on commit**, independently of test outcome. For test-gated deployment, change Render Auto Deploy to `After CI Checks Pass` if that option is available in your dashboard.
 
-## Technical notes and limitations
+## Online voice privacy note
 
-- The site is static. Multiplayer uses PeerJS for signaling and WebRTC peer-to-peer data connections. The room host must keep the browser open; if the host leaves, the game ends for the others.
-- Voice chat also uses PeerJS WebRTC media calls. Everyone must explicitly opt in and allow microphone access. HTTPS is required on the hosted site. Depending on mobile carrier, browser, firewall, or NAT, some audio links may fail without a TURN relay server; **voice calls have not been verified across real external devices yet**.
-- No server-side recordings or audio uploads are implemented. Audio travels peer to peer when WebRTC succeeds, but the external signaling service is required to establish calls.
-- The voice announcer uses the browser's `speechSynthesis`, not an external AI voice model. Voice announcements vary by browser and installed voices.
-- Never upload passwords, tokens, API keys or `.env` files to the public GitHub repository.
-- Current Render auto-deploy is **On Commit**, not CI-gated by default.
+Voice requires each participant to press **Join voice**, allow the microphone and leave the host tab online. Browser WebRTC media is sent peer-to-peer, not recorded by this site. Real-device browser and network compatibility varies, so test on two devices.

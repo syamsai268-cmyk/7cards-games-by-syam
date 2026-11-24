@@ -62,3 +62,35 @@
  .voice-actions .btn{flex-grow:1}
 }
 @media(max-width:370px){.suit-name{width:25px}.suit-glyph{width:24px;height:29px;font-size:19px}.boardcard{width:13.4px;height:36px}.boardcard .board-mini-suit{font-size:9px}}
+
+
+/* === v1.2: the table uses the SAME suit ink as the cards in your hand. === */
+/* Card face color source of truth, shared by hand + laid-down cards. */
+.playingcard.suit-H,.boardcard.placed.suit-H{--card-ink:#ca2144;color:var(--card-ink)}
+.playingcard.suit-D,.boardcard.placed.suit-D{--card-ink:#b52e74;color:var(--card-ink)}
+.playingcard.suit-C,.boardcard.placed.suit-C{--card-ink:#12624d;color:var(--card-ink)}
+.playingcard.suit-S,.boardcard.placed.suit-S{--card-ink:#263d70;color:var(--card-ink)}
+.board-scroll{width:100%;max-width:100%;position:relative;z-index:2;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#8abb98 transparent;padding:3px 2px 5px}
+.board-scroll::-webkit-scrollbar{height:7px}
+.board-scroll::-webkit-scrollbar-thumb{background:#79b69b;border-radius:8px}
+.board-scroll .suit-row{width:max-content;min-width:100%;margin-bottom:10px}
+.board-scroll .suit-track{gap:3px;flex:none}
+.boardcard.placed{background:#fffdf5;position:relative;border:2px solid #eee4d0;border-radius:6px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;width:36px;height:58px;box-shadow:0 3px 6px #0003;opacity:1}
+.boardcard.placed .board-rank{position:absolute;top:3px;left:4px;font:900 13px/1 Outfit,sans-serif;color:var(--card-ink)}
+.boardcard.placed .board-center-suit{font:900 27px/1 'DejaVu Sans',Georgia,serif;color:var(--card-ink);line-height:1;transform:translateY(7px)}
+.boardcard.placed.seven{background:#ffe4ad;border:2px solid #efb755}
+.boardcard.placed.highlight{box-shadow:0 0 0 2px #fff3af,0 0 17px #ffe082;z-index:3}
+.boardcard.empty{width:36px;height:58px;flex:none;display:grid;place-items:center;background:rgba(246,255,251,.045);border:1px dashed rgba(211,250,222,.32);box-shadow:none;color:#c0dac9;opacity:.7}
+.boardcard.empty .slot-rank{font:700 11px/1 Outfit,sans-serif;opacity:.75}
+.board-scroll .suit-name{height:58px}
+.board-legend{text-align:center;line-height:1.6;margin-top:6px}
+@media(max-width:700px){
+ .board{padding:15px 8px}
+ .board-scroll .suit-row{min-width:625px}
+ .board-scroll .suit-name{width:88px;gap:8px}
+ .board-scroll .suit-glyph{width:32px;height:36px}
+ .board-scroll .suit-label{display:inline;font-size:10px}
+ .boardcard.placed,.boardcard.empty{width:36px;height:54px}
+ .board-scroll .suit-name{height:54px}
+ .board-legend{font-size:10px}
+}

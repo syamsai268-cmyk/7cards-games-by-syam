@@ -1,10 +1,10 @@
 7Cards Games — By Syam
-Version: 1.1.0
+Version: 1.2.0
 Release changes:
-- High-contrast suit symbols (hearts, diamonds, clubs, spades)
-- Cards keep their true colors when not playable
-- Improved table: suit names, symbols on played cards, visible empty slots
-- Opt-in friends voice chat (WebRTC, PeerJS) with Join / Mute / Leave
-- Optional spoken card-move announcer (browser text-to-speech)
-- Updated PWA cache to reduce stale releases
-- GitHub Actions CI verification and existing Render automatic deployment
+- Played cards on the green table now show their actual suit symbol (♥ ♦ ♣ ♠), not a number only
+- Board card faces and hand cards share exactly the same suit color
+- Enlarged table card faces with rank in the corner and a large symbol in the middle
+- Empty spaces remain visibly empty; sideways table scrolling on small screens
+- Includes v1.1 opt-in voice chat and voice announcer
+- PWA cache bumped to v1.2.0 to avoid old styles remaining visible
+- Auto-deploys on Render following a GitHub main branch push

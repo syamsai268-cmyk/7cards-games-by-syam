@@ -1,10 +1,4 @@
 7Cards Games — By Syam
-Version: 1.2.0
-Release changes:
-- Played cards on the green table now show their actual suit symbol (♥ ♦ ♣ ♠), not a number only
-- Board card faces and hand cards share exactly the same suit color
-- Enlarged table card faces with rank in the corner and a large symbol in the middle
-- Empty spaces remain visibly empty; sideways table scrolling on small screens
-- Includes v1.1 opt-in voice chat and voice announcer
-- PWA cache bumped to v1.2.0 to avoid old styles remaining visible
-- Auto-deploys on Render following a GitHub main branch push
+Version: 1.3.0
+Release: Compact mobile-first layout, fully visible 4×13 rank board, readable playing cards and better phone usability.
+Website: https://sevencards-games-by-syam.onrender.com

@@ -1,4 +1,4 @@
-# Render update — v1.2.0
+# Render update — v1.3.0
 
 This project is ALREADY deployed as an existing Render static site, so do not create another Render service.
 
@@ -7,7 +7,7 @@ This project is ALREADY deployed as an existing Render static site, so do not cr
 - Repo: https://github.com/syamsai268-cmyk/7cards-games-by-syam
 - Branch: `main` — Render Auto Deploy: On Commit
 
-To update, run `Update-GitHub-v1.2.ps1` or upload all extracted files into the existing GitHub repo root and commit to main. Render will deploy the commit automatically.
+To update, run `Update-GitHub-v1.3.ps1` or upload all extracted files into the existing GitHub repo root and commit to main. Render will deploy the commit automatically.
 
 After Render shows Live, hard-refresh the game (Ctrl + Shift + R) if the old UI remains.
 

@@ -94,3 +94,84 @@
  .board-scroll .suit-name{height:54px}
  .board-legend{font-size:10px}
 }
+
+
+/* === v1.3 MOBILE-FIRST COMPACT GAME LAYOUT ===
+   Keep 13 ranks visible together on every phone, without side-scrolling.
+   Every played card retains the same suit color and symbol as its hand card.
+*/
+@media (max-width:700px) {
+  html,body{max-width:100%;overflow-x:hidden}
+  body{font-weight:600}
+  .app{width:calc(100% - 14px);max-width:100%;padding:9px 0 22px}
+  .topbar{gap:6px;margin-bottom:11px;min-width:0;flex-wrap:wrap}
+  .brand{gap:7px;min-width:0}
+  .brand-icon{width:30px;height:35px;font-size:18px}
+  .brand-name{font-size:18px;line-height:1.08;letter-spacing:-.5px}
+  .byline{font-size:9px;letter-spacing:.7px}
+  .version-mark{font-size:9px;margin-left:3px;padding:1px 4px}
+  .top-actions{gap:4px;min-width:0}
+  .top-actions .pill{padding:7px 8px;font-size:11px;border-radius:8px}
+  .game-head{gap:6px;margin-bottom:9px}
+  .game-head h2{font-size:22px;font-weight:900}
+  .meta{gap:4px}
+  .tag{padding:5px 7px;font-size:10px}
+  .game-layout{gap:11px}
+  .game-main>.panel{padding:10px}
+  .panel{border-radius:15px}
+  /* Players become a short single row, and can scroll only if there are many players */
+  .players{display:flex;gap:5px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#508477 transparent;margin:0 0 10px;padding:1px 1px 4px;min-width:0}
+  .player{flex:1 0 94px;padding:8px 7px;border-radius:9px;min-height:56px}
+  .player-name{font-size:11px;font-weight:900;line-height:1.3}
+  .player-stat{margin-top:5px;font-size:9px;gap:4px;white-space:nowrap}
+  .player-dot{font-size:9px}
+  /* The table never needs horizontal scrolling: 4 suits × 13 ranks fit by CSS grid */
+  .board{padding:9px 6px 8px;min-height:0;border-radius:13px;overflow:hidden}
+  .board:before{display:none}
+  .board-label{margin:0 0 7px;font-size:11px;line-height:1.2;letter-spacing:.55px;color:#f0fff1;font-weight:900}
+  .board-scroll,.board-scroll[role="region"]{overflow-x:visible;overflow-y:visible;padding:0;width:100%;max-width:100%}
+  .board-scroll .suit-row{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:3px;min-width:0;width:100%;margin:0 0 5px}
+  .board-scroll .suit-name{width:36px;height:42px;display:flex;align-items:center;justify-content:center;min-width:0;gap:0}
+  .board-scroll .suit-glyph{width:30px;height:32px;border-radius:5px;font-size:23px;box-shadow:0 2px 4px #0003}
+  .board-scroll .suit-label{display:none}
+  .board-scroll .suit-track{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));align-items:stretch;justify-content:stretch;width:100%;min-width:0;gap:2px}
+  .board-scroll .boardcard.placed,.board-scroll .boardcard.empty{box-sizing:border-box;width:100%;min-width:0;max-width:100%;height:42px;border-radius:4px;overflow:hidden}
+  .board-scroll .boardcard.placed{border-width:1.2px}
+  .board-scroll .boardcard.placed .board-rank{font-size:10px;line-height:1;left:2px;top:3px;font-weight:900;white-space:nowrap}
+  .board-scroll .boardcard.placed .board-center-suit{font-size:17px;line-height:1;transform:translateY(6px);font-weight:900}
+  .board-scroll .boardcard.empty{opacity:1;border-color:rgba(219,249,231,.32);background:rgba(226,250,235,.07);color:#d8efe3}
+  .board-scroll .boardcard.empty .slot-rank{font-size:10px;font-weight:900;opacity:.82;white-space:nowrap}
+  .board-scroll .boardcard.placed.highlight{box-shadow:inset 0 0 0 1px #e5a93a,0 0 0 1px #ffe492;z-index:2}
+  .board-legend{font-size:9.5px;line-height:1.3;font-weight:800;margin:5px 0 1px;white-space:normal;color:#d8efdf}
+  .board-legend strong{font-size:10px}
+  .hand-area{margin-top:11px}
+  .hand-head{gap:4px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .hand-head h3{font-size:16px;font-weight:900}
+  .status{font-size:11px;font-weight:900}
+  /* Equal sized, finger-friendly hand cards; no cards larger than the phone grid */
+  .hand{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;min-height:0;align-items:start}
+  .playingcard{width:100%;min-width:0;height:76px;padding:5px;border-width:2px;border-radius:8px;touch-action:manipulation}
+  .playingcard .toprank{font-size:17px}
+  .playingcard .topsuit{font-size:12px}
+  .playingcard .center-suit{font-size:29px;line-height:1;margin-bottom:0}
+  .playingcard.legal,.playingcard.legal:hover{transform:none;box-shadow:inset 0 0 0 1px #b8ffe1,0 0 0 2px #78edb9,0 5px 10px #0005}
+  .playingcard.locked:after{font-size:7px;top:3px;right:3px;padding:1px 2px}
+  .actions-row{margin-top:11px;gap:8px}
+  .actions-row .btn{min-height:43px}
+  .turn-info{font-size:11px;font-weight:700}
+  .sidebar{gap:10px}
+}
+@media(max-width:390px) {
+  .game-head h2{font-size:20px}
+  .top-actions .pill{padding:6px;font-size:10px}
+  .board-scroll .suit-row{grid-template-columns:30px minmax(0,1fr);gap:2px}
+  .board-scroll .suit-name{width:30px;height:40px}
+  .board-scroll .suit-glyph{width:26px;height:30px;font-size:21px}
+  .board-scroll .suit-track{gap:1.5px}
+  .board-scroll .boardcard.placed,.board-scroll .boardcard.empty{height:40px}
+  .board-scroll .boardcard.placed .board-rank{font-size:9px;left:2px;top:3px}
+  .board-scroll .boardcard.placed .board-center-suit{font-size:15px}
+  .board-scroll .boardcard.empty .slot-rank{font-size:9px}
+  .playingcard{height:73px}
+  .playingcard .center-suit{font-size:26px}
+}

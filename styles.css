@@ -96,7 +96,7 @@
 }
 
 
-/* === v1.3 MOBILE-FIRST COMPACT GAME LAYOUT ===
+/* === v1.4 MOBILE-FIRST COMPACT GAME LAYOUT ===
    Keep 13 ranks visible together on every phone, without side-scrolling.
    Every played card retains the same suit color and symbol as its hand card.
 */
@@ -174,4 +174,32 @@
   .board-scroll .boardcard.empty .slot-rank{font-size:9px}
   .playingcard{height:73px}
   .playingcard .center-suit{font-size:26px}
+}
+
+/* v1.4 - voice settings beside sound */
+.top-actions{position:relative;z-index:20}
+.voice-anchor{position:relative;display:flex;flex:none}
+.voice-trigger.voice-live{color:#9af5c9;border-color:#63cfa2;background:#154b40}
+.voice-popover{position:absolute;right:0;top:calc(100% + 9px);width:min(330px,calc(100vw - 28px));z-index:70;background:#0d2930;border:1px solid #4b9c84;box-shadow:0 15px 45px #000a;border-radius:15px;padding:16px;color:#f4fcf8;text-align:left}
+.voice-pop-title{font:900 18px Outfit,sans-serif;margin-bottom:6px}
+.voice-pop-desc{font:650 12px/1.5 'DM Sans',sans-serif;color:#c3e2d6;margin:7px 0}
+.voice-popover .voice-actions{display:flex;gap:7px;margin:10px 0;flex-wrap:wrap}
+.voice-popover .voice-actions .btn{font-size:12px;min-height:40px;padding:10px 12px;flex:1}
+.voice-popover .voice-members{max-height:94px;overflow-y:auto;margin:8px 0}
+.voice-announce{border-top:1px solid #43635f;padding:12px 0 2px;margin-top:9px;display:flex;align-items:center;gap:8px;font-weight:800;font-size:12px;cursor:pointer}
+.voice-announce input{accent-color:#89edc1;width:18px;height:18px;flex-shrink:0}
+.voice-pop-foot{font-size:10px;line-height:1.45;color:#a9c7bb;margin:9px 0 0}
+.finish-match{color:#ffdea7;border-color:#d1a45e;background:rgba(245,200,117,.09);min-height:36px}
+.finish-match:hover{background:rgba(245,200,117,.19)}
+@media(max-width:700px){
+ .topbar{align-items:flex-start}
+ .top-actions{margin-left:auto;gap:5px}
+ .voice-anchor{position:static}
+ .voice-popover{right:0;top:calc(100% + 5px);max-width:calc(100vw - 16px)}
+ .game-head .meta{gap:6px}
+ .finish-match{padding:7px 9px;font-size:11px}
+}
+@media(max-width:370px){
+ .top-actions .pill{font-size:10px;padding:6px 7px}
+ .voice-popover{width:calc(100vw - 16px)}
 }

@@ -1,4 +1,4 @@
 7Cards Games — By Syam
-Version: 1.3.0
-Release: Compact mobile-first layout, fully visible 4×13 rank board, readable playing cards and better phone usability.
+Version: 1.4.0
+Release: Voice chat relocated beside Sound, unlimited rounds and host-controlled match ending.
 Website: https://sevencards-games-by-syam.onrender.com

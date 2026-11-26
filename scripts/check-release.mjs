@@ -1,4 +1,4 @@
-// 7Cards Games v1.7.0: zero-dependency CI checks. Run: node scripts/check-release.mjs
+// 7Cards Games v1.7.1: zero-dependency CI checks. Run: node scripts/check-release.mjs
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
@@ -11,9 +11,9 @@ const html=readFileSync(resolve(root,'index.html'),'utf8');
 const css=readFileSync(resolve(root,'styles.css'),'utf8');
 const code=readFileSync(resolve(root,'app.js'),'utf8');
 const sw=readFileSync(resolve(root,'sw.js'),'utf8');
-assert.match(html,/7Cards Games v1\.7\.0/);
-assert.match(html,/styles\.css\?v=1\.7\.0/);
-assert.match(html,/app\.js\?v=1\.7\.0/);
+assert.match(html,/7Cards Games v1\.7\.1/);
+assert.match(html,/styles\.css\?v=1\.7\.1/);
+assert.match(html,/app\.js\?v=1\.7\.1/);
 assert.match(css,/\.suit-name\.suit-H/);
 assert.match(css,/\.suit-name\.suit-D/);
 assert.match(css,/\.suit-name\.suit-C/);
@@ -24,7 +24,7 @@ assert.match(code,/sendMicrophoneAudio/);
 assert.match(code,/handleVoiceAudio/);
 assert.match(code,/navigator\.mediaDevices\.getUserMedia/);
 assert.doesNotMatch(code,/peer\.call\(/,'Game voice does not depend on WebRTC NAT traversal');
-assert.match(sw,/7cards-syam-v1\.7\.0/);
+assert.match(sw,/7cards-syam-v1\.7\.1/);
 
 // Execute the actual game JavaScript with a small browser DOM stub and test its exported rules.
 const eventTarget=()=>({innerHTML:'',textContent:'',classList:{add(){},remove(){}},addEventListener(){},showModal(){},close(){},scrollTop:0});
@@ -42,8 +42,10 @@ const context=createContext(env);context.globalThis=context;
 runInContext(code,context,{filename:'app.js',timeout:3000});
 const {allCards,legalMoves,packCard,makeRoom}=window.Syam7Test;
 const deck=allCards();
-assert.equal(deck.length,52,'52 cards must be present');
-assert.equal(new Set(deck.map(packCard)).size,52,'Each card unique');
+assert.equal(deck.length,44,'44 cards must be present after removing Aces and 2s');
+assert.equal(new Set(deck.map(packCard)).size,44,'Each card unique');
+assert.ok(deck.every(c=>c.rank>=3&&c.rank<=13),'No Ace or 2 in any suit');
+for(const suit of ['H','D','C','S'])assert.equal(deck.filter(c=>c.suit===suit).length,11,'Each suit has 11 cards');
 const fresh={H:null,D:null,C:null,S:null};
 assert.deepEqual([...legalMoves(deck,fresh)].map(packCard),['H7'],'Only the heart 7 may start');
 const first={...fresh,H:{lo:7,hi:7}};
@@ -79,6 +81,9 @@ const compact=window.Syam7Test.boardView({H:{lo:6,hi:8},D:null,C:null,S:null},{s
 assert.match(compact,/table-played suit-H/,'Played card must retain its suit');
 assert.match(compact,/table-icon/,'Played card suit symbol must be visible');
 assert.match(compact,/empty-seven/,'Unopened suits still show a seven');
+const end3=window.Syam7Test.boardView({H:{lo:3,hi:7},D:null,C:null,S:null},{suit:'H',rank:3});
+assert.doesNotMatch(end3,/Next: 2/,'No lower frontier below 3');
+assert.ok(window.Syam7Test.getHostRoom().game.hands && Object.values(window.Syam7Test.getHostRoom().game.hands).flat().length===44,'Round deals all 44 cards');
 assert.match(css,/\.welcome-panel/);
 assert.match(css,/\.felt-board/);
 assert.match(css,/\.table-played/);
@@ -89,7 +94,7 @@ assert.match(css,/data-theme="galaxy"/);
 assert.match(css,/data-theme="neon"/);
 assert.match(css,/@media\(max-width:700px\)/,'Phone layout must be explicit');
 
-console.log('✓ v1.7.0: file structure, stylesheet, voice controls, SW version, game rules and author verified');
+console.log('✓ v1.7.1: file structure, stylesheet, voice controls, SW version, game rules and author verified');
 
 // Regression: first-child selector must not hide the wrapped Voice button on phones.
 assert.doesNotMatch(css,/\.top-actions \.pill:first-child\{display:none\}/);

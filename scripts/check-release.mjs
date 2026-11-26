@@ -1,4 +1,4 @@
-// 7Cards Games v1.6.0: zero-dependency CI checks. Run: node scripts/check-release.mjs
+// 7Cards Games v1.7.0: zero-dependency CI checks. Run: node scripts/check-release.mjs
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
@@ -11,7 +11,7 @@ const html=readFileSync(resolve(root,'index.html'),'utf8');
 const css=readFileSync(resolve(root,'styles.css'),'utf8');
 const code=readFileSync(resolve(root,'app.js'),'utf8');
 const sw=readFileSync(resolve(root,'sw.js'),'utf8');
-assert.match(html,/7Cards Games v1\.6\.0/);
+assert.match(html,/7Cards Games v1\.7\.0/);
 assert.match(html,/styles\.css\?v=1\.6\.0/);
 assert.match(html,/app\.js\?v=1\.6\.0/);
 assert.match(css,/\.suit-name\.suit-H/);
@@ -24,7 +24,7 @@ assert.match(code,/sendMicrophoneAudio/);
 assert.match(code,/handleVoiceAudio/);
 assert.match(code,/navigator\.mediaDevices\.getUserMedia/);
 assert.doesNotMatch(code,/peer\.call\(/,'Game voice does not depend on WebRTC NAT traversal');
-assert.match(sw,/7cards-syam-v1\.6\.0/);
+assert.match(sw,/7cards-syam-v1\.7\.0/);
 
 // Execute the actual game JavaScript with a small browser DOM stub and test its exported rules.
 const eventTarget=()=>({innerHTML:'',textContent:'',classList:{add(){},remove(){}},addEventListener(){},showModal(){},close(){},scrollTop:0});
@@ -51,20 +51,45 @@ assert.deepEqual([...legalMoves(deck,first)].map(packCard).sort(),['C7','D7','H6
 const room=makeRoom('ABC123',false,'Syam');
 assert.equal(room.seats[0].name,'Syam');
 assert.equal(room.targetRounds,undefined,'Unlimited rounds');
-assert.match(app.innerHTML,/CREATED BY SYAM/);
-// Verify the real solo-game UI reaches the in-game 52-slot board.
-const click = action => eventHandlers.click({target:{closest:()=>({dataset:{action}})}});
+assert.match(app.innerHTML,/MADE BY SYAM/);
+// Verify both the new lounge home and the compact mobile game board.
+assert.match(app.innerHTML,/Take a seat/,'Landing page shows the new join form');
+assert.match(app.innerHTML,/Open Table/,'Quick room creation remains available');
+assert.match(app.innerHTML,/Practice vs Bots/,'Offline bots remain available');
+const click = (action, extra={}) => eventHandlers.click({target:{closest:()=>({dataset:{action,...extra}})}});
+click('theme-menu');
+assert.match(app.innerHTML,/theme-choice/,'Theme control must open');
+assert.match(app.innerHTML,/Classic green/);
+assert.match(app.innerHTML,/Galaxy/);
+assert.match(app.innerHTML,/Neon night/);
+assert.match(app.innerHTML,/Ocean/);
+click('theme-select',{theme:'galaxy'});
+assert.equal(storage.getItem('syam7-theme'),'galaxy','Theme selection is saved');
 click('solo');
 assert.match(app.innerHTML,/Play with bots/);
 click('start');
 assert.match(app.innerHTML,/Round 1/);
-assert.equal((app.innerHTML.match(/class="boardcard /g)||[]).length,52);
-assert.match(app.innerHTML,/class="suit-name suit-H"/);
-assert.match(app.innerHTML,/class="suit-name suit-D"/);
-assert.match(app.innerHTML,/class="suit-name suit-C"/);
-assert.match(app.innerHTML,/class="suit-name suit-S"/);
+assert.equal((app.innerHTML.match(/class="felt-row"/g)||[]).length,4,'All four suits must be shown');
+for(const suit of ['H','D','C','S'])assert.match(app.innerHTML,new RegExp('felt-suit suit-'+suit));
+assert.match(app.innerHTML,/class="hand"/,'Hand must remain playable');
+assert.match(app.innerHTML,/data-action="play"/,'Card tap action must remain');
+assert.match(app.innerHTML,/data-action="end-match"/,'Unlimited rounds must retain End Match');
+assert.match(app.innerHTML,/data-action="chat-menu"/,'Chat toggle must remain available');
+const compact=window.Syam7Test.boardView({H:{lo:6,hi:8},D:null,C:null,S:null},{suit:'H',rank:8});
+assert.match(compact,/table-played suit-H/,'Played card must retain its suit');
+assert.match(compact,/table-icon/,'Played card suit symbol must be visible');
+assert.match(compact,/empty-seven/,'Unopened suits still show a seven');
+assert.match(css,/\.welcome-panel/);
+assert.match(css,/\.felt-board/);
+assert.match(css,/\.table-played/);
+assert.match(css,/\.hand \.playingcard/);
+assert.match(css,/data-theme="ocean"/);
+assert.match(css,/data-theme="classic"/);
+assert.match(css,/data-theme="galaxy"/);
+assert.match(css,/data-theme="neon"/);
+assert.match(css,/@media\(max-width:700px\)/,'Phone layout must be explicit');
 
-console.log('✓ v1.6.0: file structure, stylesheet, voice controls, SW version, game rules and author verified');
+console.log('✓ v1.7.0: file structure, stylesheet, voice controls, SW version, game rules and author verified');
 
 // Regression: first-child selector must not hide the wrapped Voice button on phones.
 assert.doesNotMatch(css,/\.top-actions \.pill:first-child\{display:none\}/);

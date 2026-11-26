@@ -1,4 +1,4 @@
 7Cards Games — By Syam
-Version: 1.7.0
-Release: Mobile-first Sevens lounge design, Classic/Neon/Galaxy/Ocean felt themes, animation toggle, fanned hand, compact board, quick friend-table join and accessible chat. Multiplayer, bots, voice and unlimited rounds retained.
+Version: 1.7.1
+Release: Four mobile-friendly themes, fanned cards, bots, friends, voice, and unlimited rounds. Remove all Aces and 2s from the deck: 44 cards total, ranks 3–King. Old solo saves are isolated to prevent 52-card resumption.
 Website: https://sevencards-games-by-syam.onrender.com

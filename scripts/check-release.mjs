@@ -1,4 +1,4 @@
-// 7Cards Games v1.7.1: zero-dependency CI checks. Run: node scripts/check-release.mjs
+// 7Cards Games v1.7.2: zero-dependency CI checks. Run: node scripts/check-release.mjs
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
@@ -11,9 +11,9 @@ const html=readFileSync(resolve(root,'index.html'),'utf8');
 const css=readFileSync(resolve(root,'styles.css'),'utf8');
 const code=readFileSync(resolve(root,'app.js'),'utf8');
 const sw=readFileSync(resolve(root,'sw.js'),'utf8');
-assert.match(html,/7Cards Games v1\.7\.1/);
-assert.match(html,/styles\.css\?v=1\.7\.1/);
-assert.match(html,/app\.js\?v=1\.7\.1/);
+assert.match(html,/7Cards Games v1\.7\.2/);
+assert.match(html,/styles\.css\?v=1\.7\.2/);
+assert.match(html,/app\.js\?v=1\.7\.2/);
 assert.match(css,/\.suit-name\.suit-H/);
 assert.match(css,/\.suit-name\.suit-D/);
 assert.match(css,/\.suit-name\.suit-C/);
@@ -24,7 +24,7 @@ assert.match(code,/sendMicrophoneAudio/);
 assert.match(code,/handleVoiceAudio/);
 assert.match(code,/navigator\.mediaDevices\.getUserMedia/);
 assert.doesNotMatch(code,/peer\.call\(/,'Game voice does not depend on WebRTC NAT traversal');
-assert.match(sw,/7cards-syam-v1\.7\.1/);
+assert.match(sw,/7cards-syam-v1\.7\.2/);
 
 // Execute the actual game JavaScript with a small browser DOM stub and test its exported rules.
 const eventTarget=()=>({innerHTML:'',textContent:'',classList:{add(){},remove(){}},addEventListener(){},showModal(){},close(){},scrollTop:0});
@@ -94,7 +94,7 @@ assert.match(css,/data-theme="galaxy"/);
 assert.match(css,/data-theme="neon"/);
 assert.match(css,/@media\(max-width:700px\)/,'Phone layout must be explicit');
 
-console.log('✓ v1.7.1: file structure, stylesheet, voice controls, SW version, game rules and author verified');
+console.log('✓ v1.7.2: file structure, stylesheet, voice controls, SW version, game rules and author verified');
 
 // Regression: first-child selector must not hide the wrapped Voice button on phones.
 assert.doesNotMatch(css,/\.top-actions \.pill:first-child\{display:none\}/);
@@ -110,3 +110,14 @@ const returned=window.Syam7Test.decodeVoiceSample(one);
 assert.ok(Number.isFinite(returned) && Math.abs(returned-0.3)<0.025,'Voice codec round-trip must preserve speech amplitudes');
 assert.match(code,/voice-test/,'Voice must have a speaker test button');
 assert.match(code,/relaySend\(relaySocket,\{type:'voice-audio'/,'Microphone audio must travel over WebSocket relay');
+
+assert.match(code,/function networkStatusView\(/,'Network status component remains available');
+assert.match(code,/function startNetworkMonitor\(/,'Heartbeat monitors network health');
+assert.match(code,/function handleRoomPong\(/,'Ping latency handler remains available');
+assert.match(code,/warmRoomServer\(\)/,'Server can be warmed before creating rooms');
+assert.match(code,/case 'retry-room'/,'A reconnect/retry action is available');
+assert.match(code,/lobby-chat/,'Friends lobby includes chat');
+assert.match(code,/chatDraft/,'Unsent chat draft is retained on refresh');
+assert.match(code,/case 'check-network'/,'User can manually check the room network');
+assert.match(css,/\.network-status/,'Network status has visible styling');
+assert.match(css,/\.chat-layer\.chat-open/,'Mobile chat overlay remains accessible');

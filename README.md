@@ -1,8 +1,8 @@
-# 7Cards Games — By Syam v1.8.0
+# 7Cards Games — By Syam v1.9.0
 
 Private friends' Sevens and bot play on the existing Render website.
 
-### New in v1.8.0 — Sevens lounge
+### New in v1.9.0 — Sevens lounge
 
 - New mobile-first **Take a seat** start screen with name, optional room code, and **Open Table** action.
 - Four selectable felt themes: **Ocean**, **Classic green**, **Galaxy**, and **Neon night**. Saved locally per device.
@@ -25,7 +25,7 @@ Room server: https://sevencards-room-relay-syam.onrender.com/health
 
 Friends and mic audio need final two-real-device checks. The host must keep the game tab open. No payment or betting.
 
-### Rules update in v1.8.0
+### Rules update in v1.9.0
 
 As requested, **all Aces and all 2s are removed** from the deck. Each suit now contains 3–10, J, Q and K (11 cards), for 44 cards total. The 7♥ still starts every round; cards extend each opened suit down to 3 and up to K. Aces and 2s are never dealt or scored. Old offline saves are not offered for resume because they used the 52-card rules.
 
@@ -49,3 +49,11 @@ The relay is still a **free Render web service**. Cold starts can take time, and
 - **Privacy**: Optional voice chat requires explicit microphone permission. Public rooms are discoverable by strangers, so avoid using personal information as a player name. The free relay does not retain public listings across restarts.
 
 The 44-card 3–King rules, mobile themes, bots, private invitations and unlimited rounds are unchanged.
+
+### v1.9 — in-game team microphone and completely equal deals
+
+**Mic like PUBG**: The previous Voice menu is removed. In any online friends or public room, a floating microphone dock appears on phones and desktops. Tap **Join mic** to request device microphone permission and listen/talk to other friends who also joined. Tap **Mute mic** to stop sending your voice while staying connected, tap **Unmute** to speak again, or tap **×** to leave team voice and turn off microphone capture. The dock shows how many other players joined and indicates audio received from others. The voice transport remains the existing optional audio relay; the microphone never activates automatically. Both devices must be in the same online room and have microphone permission; bot games have no team voice. Use headphones to avoid echo.
+
+**44-card source deck, equal hands for any 2–8 seats**: All Aces and 2s remain removed. Every player receives `Math.floor(44 / playerCount)` cards. For counts that do not divide 44 evenly, the remainder is removed *before* the deal and does not score. Only Kings are set aside (one per randomly chosen suit), preserving a continuous 3→Q/K sequence and the mandatory 7♥ opener. The round UI and lobby show exact cards per player and number set aside. No player receives an extra card.
+
+**Limits**: The Render free relay may sleep, so startup may be slow after idle. This is browser-based voice, not a standalone native PUBG application; actual audio reliability on multiple phones requires device testing. The public-room privacy opt-in and private invites remain unchanged.

@@ -1,4 +1,4 @@
-name: 7Cards CI - multiplayer v1.7.1
+name: 7Cards CI - multiplayer v1.7.2
 on:
   push:
     branches: [main]
@@ -24,7 +24,7 @@ jobs:
           node --check app.js
           node --check sw.js
           node --check relay-server.js
-      - name: Test two-player room and bidirectional voice relay
+      - name: Test two-player room, voice relay and connection ping/pong
         run: npm test
-      - name: Test game rules, themes, card table, audio codec and v1.7.1
+      - name: Test 44-card rules, chat, network health, audio and v1.7.2
         run: node scripts/check-release.mjs

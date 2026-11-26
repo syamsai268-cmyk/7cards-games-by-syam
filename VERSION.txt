@@ -1,4 +1,4 @@
 7Cards Games — By Syam
-Version: 1.6.0
-Release: Voice uses WebSocket microphone audio instead of unreliable direct WebRTC on mobile networks. Test speaker, mute and unlimited rounds.
+Version: 1.7.0
+Release: Mobile-first Sevens lounge design, Classic/Neon/Galaxy/Ocean felt themes, animation toggle, fanned hand, compact board, quick friend-table join and accessible chat. Multiplayer, bots, voice and unlimited rounds retained.
 Website: https://sevencards-games-by-syam.onrender.com

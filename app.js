@@ -196,7 +196,7 @@ function stopNetwork(){
   stopVoice(false);
   clearTimeout(botTimeout); clearTimeout(joinTimeout);
   const ws=relaySocket; relaySocket=null;
-  clearInterval(networkHeartbeat);networkHeartbeat=null;networkLatency=null;networkState='idle';
+  if(typeof clearInterval==='function')clearInterval(networkHeartbeat);networkHeartbeat=null;networkLatency=null;networkState='idle';
   if(ws){ws.onmessage=null;ws.onclose=null;ws.onerror=null;try{ws.close();}catch{}}
   for(const c of relayPeers.values())try{c.disconnected();}catch{}
   relayPeers.clear();

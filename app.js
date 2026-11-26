@@ -27,6 +27,8 @@ let voiceStarting = false;
 let voiceMenuOpen = false;
 let themeMenuOpen = false;
 let chatMenuOpen = false;
+let nextRoomPublic = false, publicRooms = [], publicListStatus = '';
+let publicListSocket = null;
 let tableTheme = ['ocean','classic','galaxy','neon'].includes(store.getItem('syam7-theme')) ? store.getItem('syam7-theme') : 'ocean';
 let animationsEnabled = store.getItem('syam7-motion') !== 'off';
 const themeLabels = {ocean:'Ocean',classic:'Classic green',galaxy:'Galaxy',neon:'Neon night'};
@@ -121,9 +123,43 @@ function homeView(){
  '<div class="field"><label for="yourName">Your name</label><input id="yourName" maxlength="22" autocomplete="nickname" value="'+html(playerName)+'" placeholder="Your name"></div>'+
  '<div class="field"><label for="joinCode">Room code <span class="muted">· optional</span></label><input id="joinCode" maxlength="8" autocomplete="off" style="text-transform:uppercase" placeholder="Leave blank for a new table"></div>'+
  '<button class="btn primary welcome-start" data-action="quick-start">Open Table <span>→</span></button>'+
+ '<label class="public-opt"><input id="publicRoom" type="checkbox"> 🌍 Make this table public <span>(optional)</span></label>'+ 
  '<div class="welcome-alt"><button class="btn secondary" data-action="solo">🤖 Practice vs Bots</button><button class="btn tertiary" data-action="rules" aria-label="How to play">ⓘ</button></div>'+
  (saved?'<button class="welcome-resume" data-action="resume">↺ Resume your previous bot game</button>':'')+
- '</section><p class="welcome-footnote">44 cards · No Aces or 2s · Unlimited rounds · Private invites · Voice with friends</p></section>';
+ '</section><div class="discover-actions"><button class="btn secondary" data-action="public-tables">🌍 Browse public tables</button><button class="btn tertiary" data-action="share-game">🔗 Share game</button></div><p class="welcome-footnote">44 cards · No Aces or 2s · Unlimited rounds · Private and public games</p></section>';
+}
+
+
+function publicView(){
+ const rows=publicRooms.map(room=>'<div class="public-table"><div><strong>🃏 '+html(room.hostName)+'’s table</strong><small>'+room.players+'/'+room.capacity+' players · waiting for friends</small></div><button class="btn secondary" data-action="join-public" data-code="'+html(room.code)+'">Join</button></div>').join('');
+ return '<section class="setup surface public-rooms"><div class="section-header"><h2>🌍 Public tables</h2><button class="smallbtn" data-action="refresh-public">↻ Refresh</button></div><p class="setup-intro">Open games anyone can discover. A host chooses whether to list their table. Your microphone stays off until you join voice.</p><p class="public-status" role="status">'+html(publicListStatus||'Looking for open tables…')+'</p>'+(rows||'<p class="empty-public">No public tables open. Create one and invite other players!</p>')+'<div class="public-bottom"><button class="btn primary" data-action="create-public">🌍 Host public table</button><button class="btn tertiary" data-action="home">⌂ Home</button></div></section>';
+}
+function showPublicRooms(){
+ screen='public';publicRooms=[];publicListStatus='Checking public tables…';render();refreshPublicRooms();
+}
+function refreshPublicRooms(){
+ if(screen!=='public')return;
+ publicListStatus='Checking public tables…';render();warmRoomServer();
+ try{publicListSocket?.close()}catch{}
+ let ws;try{ws=new WebSocket(RELAY_URL);}catch{publicListStatus='Unable to connect. Check internet and refresh.';render();return;}
+ publicListSocket=ws;
+ const timeout=setTimeout(()=>{
+  if(publicListSocket===ws){publicListSocket=null;publicListStatus='The server may be waking up. Tap Refresh to try again.';render();try{ws.close()}catch{}}
+ },50000);
+ ws.onopen=()=>{try{ws.send(JSON.stringify({type:'public-list'}))}catch{}};
+ ws.onmessage=e=>{
+  if(publicListSocket!==ws)return;
+  let m;try{m=JSON.parse(e.data)}catch{return;}
+  if(m.type==='public-rooms'){
+   clearTimeout(timeout);
+   publicRooms=Array.isArray(m.rooms)?m.rooms.filter(x=>/^[A-Z0-9]{6,8}$/.test(x.code)).slice(0,40):[];
+   publicListStatus=publicRooms.length?publicRooms.length+' public table(s) available':'No public tables yet. Be the first host!';
+   if(screen==='public')render();
+   publicListSocket=null;ws.close();
+  }
+ };
+ ws.onerror=()=>{if(publicListSocket===ws){clearTimeout(timeout);publicListStatus='Connection problem. Tap Refresh to retry.';render()}};
+ ws.onclose=()=>{clearTimeout(timeout);if(publicListSocket===ws){publicListSocket=null;publicListStatus='Server disconnected. Tap Refresh to retry.';if(screen==='public')render();}};
 }
 
 function friendsView() {return `<section class="setup surface"><div class="section-header"><h2>Create a friends room ♣</h2><button class="smallbtn" data-action="home">← Back</button></div><p class="setup-intro">Open your own private card table, invite friends using a shareable link, and optionally add bots before you begin. Play unlimited rounds and end the match whenever your group is ready.</p>${lastError?`<p class="network-error" role="alert">⚠️ ${html(lastError)} <button data-action="create-online">Retry</button></p>`:""}<div class="field"><label for="yourName">Your player name</label><input id="yourName" maxlength="22" value="${html(playerName)}" placeholder="Your name"></div><div class="setup-buttons"><button class="btn primary" data-action="create-online">🔗 Create private room →</button><button class="btn secondary" data-action="join-screen">Join someone else’s room</button></div><p class="hint">The host browser stays open during the match. Use a hosted HTTPS link for online multiplayer.</p></section>`;}
@@ -131,7 +167,7 @@ function joinView() {return `<section class="setup surface"><div class="section-
 function loadingView(){return `<section class="setup surface loading"><div class="spinner"></div><h2>${html(loadingMessage||'Connecting...')}</h2><p class="muted">${html(lastError||'Checking your room connection.')}</p><p class="loading-note">If the free room server has been idle, the first connection can take longer while it wakes up.</p><div class="loading-buttons"><button class="btn secondary" data-action="retry-room">↻ Retry connection</button><button class="btn tertiary" data-action="home">Cancel</button></div></section>`;}
 function playerChip(p,idx) {const active=currentView.game&&currentView.game.turnId===p.id;return `<div class="player ${active?'active':''} ${p.id===myId?'me':''}"><div class="player-name">${p.isBot?BOT_EMOJIS[idx%BOT_EMOJIS.length]:'👤'} ${html(p.name)} ${p.id===myId?'(You)':''}</div><div class="player-stat"><span>🃏 ${p.cardCount} cards</span><span>${active?'<span class="player-dot">● TURN</span>':p.isBot?'BOT':p.online?'ONLINE':'AUTO BOT'}</span></div></div>`;}
 function lobbyView(){const v=currentView;return `<section class="setup surface" style="max-width:900px"><div class="section-header"><h2>${isSolo?'Play with bots 🤖':'Private game lobby ♣'}</h2><span class="tag accent">${v.players.length}/8 players</span></div><p class="setup-intro">${isSolo?'Choose how many bots to face, then start the match.':'Invite friends to your private table. You can also add bots to fill empty seats.'}</p>${!isSolo?`<div class="invite"><div><small>ROOM CODE</small><div class="room-code">${html(v.code)}</div></div><div class="invite-actions"><button class="btn primary" data-action="copy">⧉ Copy link</button><button class="btn tertiary" data-action="share">↗ Share</button></div></div>`:''}
-<div class="section-header" style="margin-top:24px"><h2 style="font-size:20px">Players at the table</h2>${v.isHost?'<button class="smallbtn" data-action="add-bot">+ Add a bot</button>':''}</div><div class="lobby-players">${v.players.map((p,i)=>`<div class="lobby-person"><div><b>${p.isBot?'🤖':'👤'} ${html(p.name)} ${p.id===myId?'(You)':''}</b><small>${p.isBot?'Computer player':p.isHost?'Room host':p.online?'Ready to play':'Disconnected'}</small></div>${v.isHost&&p.id!==myId?`<button class="icon-button" data-action="remove-player" data-player="${html(p.id)}" title="Remove player">✕</button>`:''}</div>`).join('')}</div>
+${v.isHost&&!isSolo?`<button class="btn tertiary public-switch" data-action="toggle-public">🌍 ${hostRoom?.isPublic?'Public table ✓ · Make private':'Private table 🔒 · Make public'}</button>`:''}<div class="section-header" style="margin-top:24px"><h2 style="font-size:20px">Players at the table</h2>${v.isHost?'<button class="smallbtn" data-action="add-bot">+ Add a bot</button>':''}</div><div class="lobby-players">${v.players.map((p,i)=>`<div class="lobby-person"><div><b>${p.isBot?'🤖':'👤'} ${html(p.name)} ${p.id===myId?'(You)':''}</b><small>${p.isBot?'Computer player':p.isHost?'Room host':p.online?'Ready to play':'Disconnected'}</small></div>${v.isHost&&p.id!==myId?`<button class="icon-button" data-action="remove-player" data-player="${html(p.id)}" title="Remove player">✕</button>`:''}</div>`).join('')}</div>
 <div class="setup-row" style="margin-top:18px"><div class="field"><label>Rounds</label><div class="tag accent" style="padding:15px">♾ Unlimited — host ends the match</div></div><div class="field"><label>Scoring</label><div class="tag" style="padding:15px">3 = 3 · 10 = 10 · J = 11 · Q = 12 · K = 13</div></div></div>
 <div class="setup-buttons">${v.isHost?`<button class="btn primary" data-action="start" ${v.players.length<2?'disabled':''}>▶ Start game</button>`:'<div class="tag accent" style="padding:15px">Waiting for the host to start…</div>'}<button class="btn tertiary" data-action="rules">📖 Rules</button></div><p class="smallnote">A match needs 2–8 players. With an odd player count, some players may receive one extra card. Bot turns are automatic.</p></section><div class="chat-layer lobby-chat ${chatMenuOpen?'chat-open':''}">${chatView(v)}<button class="chat-dismiss" data-action="chat-menu">Close chat ✕</button></div>`;} 
 function boardView(board,lastCard){
@@ -185,11 +221,11 @@ function boardGameView(){
 }
 
 function resultsView(){const v=currentView,final=v.phase==='finished';const r=v.lastRound||{points:{},winnerName:'',empty:''};const winnerScore=Math.min(...v.players.map(p=>p.score));const champs=v.players.filter(p=>p.score===winnerScore);const played=v.completedRounds||0;return `<section class="surface result"><div class="trophy">${final?'🏆':'🎉'}</div><div class="eyebrow">${final?'MATCH COMPLETE':'ROUND '+v.roundIndex+' COMPLETE'}</div><h2>${final?champs.map(x=>html(x.name)).join(' & ')+' wins!':html(r.winnerName)+' cleared their hand!'}</h2><p class="muted">${final?`After ${played} completed round${played===1?'':'s'}, the lowest total is <b style="color:var(--gold)">${winnerScore} points</b>.${played<v.roundIndex?' The unfinished round was not counted.':''}`: 'Cards left in hand are counted as penalty points. Lower is better! Play another round or end the match anytime.'}</p><div class="result-table">${[...v.players].sort((a,b)=>a.score-b.score).map((p,i)=>`<div class="result-row"><span>${i===0?'🥇 ':''}${html(p.name)} ${p.id===myId?'(You)':''}</span><span>${!final?`+${r.points[p.id]??0} · `:''}<b>${p.score} total</b></span></div>`).join('')}</div><div class="result-buttons">${v.isHost?final?'<button class="btn primary" data-action="rematch">↻ Start a new match</button>':`<button class="btn primary" data-action="next">▶ Play round ${v.roundIndex+1}</button><button class="btn secondary" data-action="end-match">🏁 End match & see winner</button>`:'<span class="tag accent" style="padding:15px">Waiting for the host…</span>'}<button class="btn tertiary" data-action="copy" ${isSolo?'disabled':''}>🔗 Copy invite</button><button class="btn tertiary" data-action="home">⌂ Home</button></div></section><div class="chat-layer results-chat ${chatMenuOpen?'chat-open':''}">${chatView(v)}<button class="chat-dismiss" data-action="chat-menu">Close chat ✕</button></div>`;}
-function render(){if(document.documentElement?.setAttribute){document.documentElement.setAttribute('data-theme',tableTheme);document.documentElement.classList?.toggle('no-motion',!animationsEnabled);}if(screen==='home')app.innerHTML=header()+homeView()+footer();else if(screen==='join')app.innerHTML=header()+joinView()+footer();else if(screen==='friends')app.innerHTML=header()+friendsView()+footer();else if(screen==='loading')app.innerHTML=header()+networkStatusView()+loadingView()+footer();else if(screen==='room'&&currentView){let body=currentView.phase==='lobby'?lobbyView():currentView.phase==='playing'?boardGameView():resultsView();app.innerHTML=header()+networkStatusView()+body+footer();const log=$('#chatlog');if(log)log.scrollTop=log.scrollHeight;syncVoice();announceMove();}else {screen='home';app.innerHTML=header()+homeView()+footer();}}
-function makeRoom(code, solo, name) {const id='host-'+uid();return {code,solo,phase:'lobby',roundIndex:0,seats:[{id,name,isBot:false,score:0,connected:true,isHost:true}],chat:[],game:null,lastRound:null,history:[],owner:id};}
+function render(){if(document.documentElement?.setAttribute){document.documentElement.setAttribute('data-theme',tableTheme);document.documentElement.classList?.toggle('no-motion',!animationsEnabled);}if(screen==='home')app.innerHTML=header()+homeView()+footer();else if(screen==='public')app.innerHTML=header()+publicView()+footer();else if(screen==='join')app.innerHTML=header()+joinView()+footer();else if(screen==='friends')app.innerHTML=header()+friendsView()+footer();else if(screen==='loading')app.innerHTML=header()+networkStatusView()+loadingView()+footer();else if(screen==='room'&&currentView){let body=currentView.phase==='lobby'?lobbyView():currentView.phase==='playing'?boardGameView():resultsView();app.innerHTML=header()+networkStatusView()+body+footer();const log=$('#chatlog');if(log)log.scrollTop=log.scrollHeight;syncVoice();announceMove();}else {screen='home';app.innerHTML=header()+homeView()+footer();}}
+function makeRoom(code, solo, name) {const id='host-'+uid();return {code,solo,isPublic:false,phase:'lobby',roundIndex:0,seats:[{id,name,isBot:false,score:0,connected:true,isHost:true}],chat:[],game:null,lastRound:null,history:[],owner:id};}
 function getView(pid){const r=hostRoom;const g=r.game,player=r.seats.find(p=>p.id===pid);return {code:r.code,phase:r.phase,isHost:pid===r.owner,roundIndex:r.roundIndex,players:r.seats.map(p=>({id:p.id,name:p.name,score:p.score,isBot:p.isBot,isHost:!!p.isHost,online:p.connected,cardCount:g?.hands?.[p.id]?.length||0})),myHand:g?.hands?.[pid]||[],legal:r.phase==='playing'&&g?.turnId===pid?legalMoves(g.hands[pid],g.board):[],game:g?{board:g.board,turnId:g.turnId,lastCard:g.lastCard,lastAction:g.lastAction}:null,lastRound:r.lastRound,chat:r.chat.slice(-70),history:r.history.slice(-10),you:player?.name||'Player',voicePeers:r.seats.filter(x=>!x.isBot).map(x=>({id:x.id,name:x.name,peerId:x.peerId||null,voiceOn:!!x.voiceOn,voiceMuted:!!x.voiceMuted,isBot:false}))};}
 function saveSolo(){if(hostRoom?.solo){try{store.setItem('syam7-solo-v3-k44',JSON.stringify(hostRoom));}catch{}}}
-function broadcast(){if(!hostRoom)return;currentView=getView(hostRoom.owner);screen='room';saveSolo();render();for(const [pid,c] of conns){if(c.open)try{c.send({type:'state',view:getView(pid)});}catch{}};scheduleBot();}
+function broadcast(){if(!hostRoom)return;currentView=getView(hostRoom.owner);screen='room';saveSolo();if(role==='host'&&!isSolo)relaySend(relaySocket,{type:'publish',public:!!hostRoom.isPublic,phase:hostRoom.phase,hostName:playerName});render();for(const [pid,c] of conns){if(c.open)try{c.send({type:'state',view:getView(pid)});}catch{}};scheduleBot();}
 function setupLocal(){stopNetwork();const name=saveName();role='host';isSolo=true;hostRoom=makeRoom('SOLO',true,name);myId=hostRoom.owner;addBot();addBot();broadcast();}
 
 function stopNetwork(){
@@ -232,7 +268,7 @@ function createOnline(){
   if(navigator.onLine===false){lastError='No internet connection. Switch on Wi-Fi or mobile data.';screen='friends';render();toast(lastError);return;}
   warmRoomServer();
   const code=randCode();gameCode=code;role='host';isSolo=false;
-  hostRoom=makeRoom(code,false,name);myId=hostRoom.owner;
+  hostRoom=makeRoom(code,false,name);hostRoom.isPublic=!!nextRoomPublic;myId=hostRoom.owner;
   screen='loading';loadingMessage='Creating friends room…';lastError='Checking connection to the room server';networkState='checking';render();
   const ws=new WebSocket(RELAY_URL);relaySocket=ws;
   joinTimeout=setTimeout(()=>{
@@ -248,6 +284,7 @@ function createOnline(){
     if(m.type==='pong'){handleRoomPong(m);return;}
     if(m.type==='created'){
       clearTimeout(joinTimeout);setNetworkState('online');
+      relaySend(ws,{type:'publish',public:!!hostRoom.isPublic,phase:hostRoom.phase,hostName:playerName});
       setRoute(location.pathname+'?room='+code);
       logSystem('Room created! Share the invite link. Keep this tab open.');
       broadcast();
@@ -546,7 +583,7 @@ function testVoiceSpeaker(){
 function inviteUrl(){if(!currentView||isSolo)return '';return location.origin+location.pathname+'?room='+encodeURIComponent(currentView.code);}
 async function copyLink(){const url=inviteUrl();if(!url){toast('Invite links are for online rooms only.');return;}try{await navigator.clipboard.writeText(url);toast('Invite link copied! Send it to your friends.');}catch{const box=document.createElement('textarea');box.value=url;document.body.append(box);box.select();document.execCommand('copy');box.remove();toast('Invite link copied: '+url);}}
 async function shareLink(){const url=inviteUrl();if(!url)return;if(navigator.share){try{await navigator.share({title:'Play 7Cards Games by Syam',text:'Join my private 7Cards game! 🃏',url});return;}catch{}}copyLink();}
-function safeHome(){voiceMenuOpen=false;stopNetwork();setRoute(location.pathname);gameCode='';screen='home';render();}
+function safeHome(){voiceMenuOpen=false;try{publicListSocket?.close()}catch{}publicListSocket=null;stopNetwork();setRoute(location.pathname);gameCode='';nextRoomPublic=false;screen='home';render();}
 app.addEventListener('click',async event=>{const el=event.target.closest('[data-action]');if(!el)return;const a=el.dataset.action;
  switch(a){
  case 'rules': $('#rulesDialog').showModal();break;
@@ -555,7 +592,12 @@ app.addEventListener('click',async event=>{const el=event.target.closest('[data-
  case 'chat-menu':chatMenuOpen=!chatMenuOpen;render();break;
  case 'check-network':if(!pingRoomServer())toast(navigator.onLine===false?'You are offline. Turn on Wi-Fi or mobile data.':'Room connection unavailable. Retry joining.');break;
  case 'retry-room':if(role==='host')createOnline();else if(role==='guest')joinOnline();else{screen='home';render();}break;
- case 'quick-start':{const code=String($('#joinCode')?.value||'').trim();if(code)joinOnline();else createOnline();break;}
+ case 'quick-start':{const code=String($('#joinCode')?.value||'').trim();nextRoomPublic=!!$('#publicRoom')?.checked;if(code)joinOnline();else createOnline();break;}
+ case 'public-tables':showPublicRooms();break;
+ case 'refresh-public':refreshPublicRooms();break;
+ case 'create-public':nextRoomPublic=true;createOnline();break;
+ case 'join-public':gameCode=String(el.dataset.code||'');if(gameCode)joinOnline();break;
+ case 'toggle-public':if(role==='host'&&hostRoom&&hostRoom.phase==='lobby'&&!isSolo){hostRoom.isPublic=!hostRoom.isPublic;broadcast();toast(hostRoom.isPublic?'Table is now public':'Table is private');}break;
  case 'sound':audioEnabled=!audioEnabled;store.setItem('syam7-sound',audioEnabled?'on':'off');render();toast(audioEnabled?'Sound enabled':'Sound muted');break;
  case 'voice-menu':voiceMenuOpen=!voiceMenuOpen;themeMenuOpen=false;render();break;
  case 'home':safeHome();break;

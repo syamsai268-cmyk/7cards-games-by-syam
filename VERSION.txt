@@ -1,4 +1,4 @@
 7Cards Games — By Syam
-Version: 1.8.0
-Release: Free opt-in browser voice host (welcome, rules, turns and round winners), optional public room listings, native and WhatsApp game sharing. Existing private friend rooms remain unlisted. 44 cards, four themes, friends voice, bots and unlimited rounds preserved.
+Version: 1.9.0
+Release: PUBG-like one-tap microphone to join team voice, mute/unmute, and exit. No old Voice header or scripted voice-host promotion. Exact equal hands for 2–8 players: omit 0–4 high-end Kings from each round as required, preserving 7 of Hearts and contiguous suit sequences. Aces and 2s removed from all four suits; 44-card source deck.
 Website: https://sevencards-games-by-syam.onrender.com

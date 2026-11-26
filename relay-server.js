@@ -59,8 +59,16 @@ wss.on('connection', (ws, req) => {
       if (ws.role || !/^[A-Z0-9]{6,8}$/.test(code)) return fail(ws, 'Invalid room code.');
       if (rooms.has(code)) return fail(ws, 'This code is already in use. Try creating the room again.', 'CODE_IN_USE');
       ws.role = 'host'; ws.roomCode = code;
-      rooms.set(code, {host:ws, guests:new Map()});
+      rooms.set(code, {host:ws, guests:new Map(),isPublic:false,phase:'lobby',hostName:'Host',createdAt:Date.now()});
       safeSend(ws, {type:'created', code});
+      return;
+    }
+    if (type === 'public-list') {
+      const available=[...rooms.entries()]
+        .filter(([code,room])=>room.isPublic && room.phase==='lobby' && room.host.readyState===WebSocket.OPEN && room.guests.size<7)
+        .slice(0,40)
+        .map(([code,room])=>({code,hostName:room.hostName,players:Math.min(8,1+room.guests.size),capacity:8}));
+      safeSend(ws,{type:'public-rooms',rooms:available});
       return;
     }
     if (type === 'join') {
@@ -76,6 +84,14 @@ wss.on('connection', (ws, req) => {
     }
     const room = rooms.get(ws.roomCode);
     if (!room) return fail(ws, 'Room expired. Create or join another room.', 'ROOM_EXPIRED');
+    if (type === 'publish' && ws.role==='host') {
+      const name=String(msg.hostName||'Host').replace(/[<>]/g,'').trim().slice(0,22)||'Host';
+      room.hostName=name;
+      room.phase=['lobby','playing','round_end','finished'].includes(msg.phase)?msg.phase:'lobby';
+      room.isPublic=msg.public===true && room.phase==='lobby';
+      safeSend(ws,{type:'published',public:room.isPublic});
+      return;
+    }
     if (type === 'guest-ready' && ws.role === 'host') {
       const guest = room.guests.get(String(msg.channel || ''));
       if (guest) safeSend(guest, {type:'connected'});

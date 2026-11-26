@@ -7,7 +7,7 @@ const app = $('#app');
 const SUITS = ['H', 'D', 'C', 'S'];
 const SUIT_ICONS = {H:'♥',D:'♦',C:'♣',S:'♠'};
 const SUIT_NAMES = {H:'Hearts',D:'Diamonds',C:'Clubs',S:'Spades'};
-const BOT_NAMES = ['Ace Bot', 'Mira Bot', 'Ravi Bot', 'Nova Bot', 'Blaze Bot', 'Pixel Bot', 'Tara Bot'];
+const BOT_NAMES = ['Royal Bot', 'Mira Bot', 'Ravi Bot', 'Nova Bot', 'Blaze Bot', 'Pixel Bot', 'Tara Bot'];
 const BOT_EMOJIS = ['🤖','🦊','🎮','✨','🔥','🧠','⭐'];
 const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 let peer = null, guestConn = null, hostRoom = null, currentView = null;
@@ -35,21 +35,21 @@ const themeLabels = {ocean:'Ocean',classic:'Classic green',galaxy:'Galaxy',neon:
 
 let toastTimeout = null, botTimeout = null, joinTimeout = null;
 let loadingMessage = '', lastError = '';
-const getSavedSolo = () => {try {const a=JSON.parse(store.getItem('syam7-solo-v1'));return a?.phase?a:null;}catch{return null;}};
+const getSavedSolo = () => {try {const a=JSON.parse(store.getItem('syam7-solo-v3-k44'));return a?.phase?a:null;}catch{return null;}};
 const html = (x='') => String(x).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const valueName = r => ({1:'A',11:'J',12:'Q',13:'K'}[r]||String(r));
+const valueName = r => ({11:'J',12:'Q',13:'K'}[r]||String(r));
 const packCard = c => c.suit + c.rank;
 const rankPoints = c => c.rank;
 const uid = () => (globalThis.crypto?.randomUUID?.() || String(Date.now())+'-'+String(Math.random()).slice(2));
 const randCode = () => {let c='';for(let i=0;i<6;i++)c+=letters[Math.floor(Math.random()*letters.length)];return c;};
-const allCards = () => SUITS.flatMap(suit=>Array.from({length:13},(_,i)=>({suit,rank:i+1})));
+const allCards = () => SUITS.flatMap(suit=>Array.from({length:11},(_,i)=>({suit,rank:i+3})));
 const shuffle = deck => {for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}return deck;};
 const sortedHand = h => [...(h||[])].sort((a,b)=>SUITS.indexOf(a.suit)-SUITS.indexOf(b.suit)||a.rank-b.rank);
 function legalMoves(hand, board) {
   if(!board?.H) return (hand||[]).filter(c=>c.suit==='H'&&c.rank===7);
   return (hand||[]).filter(c => {
     const lane=board[c.suit];
-    return lane ? c.rank===lane.lo-1 || c.rank===lane.hi+1 : c.rank===7;
+    return lane ? (lane.lo>3 && c.rank===lane.lo-1) || (lane.hi<13 && c.rank===lane.hi+1) : c.rank===7;
   });
 }
 function turnPlayer(room) {return room.seats[room.game.turnIndex];}
@@ -64,7 +64,7 @@ function themePanel(){
 function header(){
  const inMatch=screen==='room'&&currentView?.phase==='playing';
  const inRoom=screen==='room'&&!!currentView;
- return '<header class="topbar '+(inMatch?'topbar-match':'')+'"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">MADE BY SYAM <span class="version-mark">V1.7</span></div></div></div>'+
+ return '<header class="topbar '+(inMatch?'topbar-match':'')+'"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">MADE BY SYAM <span class="version-mark">V1.7.1</span></div></div></div>'+
  '<div class="top-actions">'+
  (inRoom?'<button class="pill room-pill" data-action="copy" title="Copy the room invite">🔗 '+html(currentView.code)+' ⧉</button>':'')+
  '<div class="theme-anchor"><button class="pill theme-trigger" data-action="theme-menu" aria-expanded="'+themeMenuOpen+'" title="Change table theme" aria-label="Table themes">🎨 <span class="desktop-label">Themes</span></button>'+(themeMenuOpen?themePanel():'')+'</div>'+
@@ -87,7 +87,7 @@ function homeView(){
  '<button class="btn primary welcome-start" data-action="quick-start">Open Table <span>→</span></button>'+
  '<div class="welcome-alt"><button class="btn secondary" data-action="solo">🤖 Practice vs Bots</button><button class="btn tertiary" data-action="rules" aria-label="How to play">ⓘ</button></div>'+
  (saved?'<button class="welcome-resume" data-action="resume">↺ Resume your previous bot game</button>':'')+
- '</section><p class="welcome-footnote">52 cards · Unlimited rounds · Private invites · Voice with friends</p></section>';
+ '</section><p class="welcome-footnote">44 cards · No Aces or 2s · Unlimited rounds · Private invites · Voice with friends</p></section>';
 }
 
 function friendsView() {return `<section class="setup surface"><div class="section-header"><h2>Create a friends room ♣</h2><button class="smallbtn" data-action="home">← Back</button></div><p class="setup-intro">Open your own private card table, invite friends using a shareable link, and optionally add bots before you begin. Play unlimited rounds and end the match whenever your group is ready.</p><div class="field"><label for="yourName">Your player name</label><input id="yourName" maxlength="22" value="${html(playerName)}" placeholder="Your name"></div><div class="setup-buttons"><button class="btn primary" data-action="create-online">🔗 Create private room →</button><button class="btn secondary" data-action="join-screen">Join someone else’s room</button></div><p class="hint">The host browser stays open during the match. Use a hosted HTTPS link for online multiplayer.</p></section>`;}
@@ -96,7 +96,7 @@ function loadingView(){return `<section class="setup surface loading"><div class
 function playerChip(p,idx) {const active=currentView.game&&currentView.game.turnId===p.id;return `<div class="player ${active?'active':''} ${p.id===myId?'me':''}"><div class="player-name">${p.isBot?BOT_EMOJIS[idx%BOT_EMOJIS.length]:'👤'} ${html(p.name)} ${p.id===myId?'(You)':''}</div><div class="player-stat"><span>🃏 ${p.cardCount} cards</span><span>${active?'<span class="player-dot">● TURN</span>':p.isBot?'BOT':p.online?'ONLINE':'AUTO BOT'}</span></div></div>`;}
 function lobbyView(){const v=currentView;return `<section class="setup surface" style="max-width:900px"><div class="section-header"><h2>${isSolo?'Play with bots 🤖':'Private game lobby ♣'}</h2><span class="tag accent">${v.players.length}/8 players</span></div><p class="setup-intro">${isSolo?'Choose how many bots to face, then start the match.':'Invite friends to your private table. You can also add bots to fill empty seats.'}</p>${!isSolo?`<div class="invite"><div><small>ROOM CODE</small><div class="room-code">${html(v.code)}</div></div><div class="invite-actions"><button class="btn primary" data-action="copy">⧉ Copy link</button><button class="btn tertiary" data-action="share">↗ Share</button></div></div>`:''}
 <div class="section-header" style="margin-top:24px"><h2 style="font-size:20px">Players at the table</h2>${v.isHost?'<button class="smallbtn" data-action="add-bot">+ Add a bot</button>':''}</div><div class="lobby-players">${v.players.map((p,i)=>`<div class="lobby-person"><div><b>${p.isBot?'🤖':'👤'} ${html(p.name)} ${p.id===myId?'(You)':''}</b><small>${p.isBot?'Computer player':p.isHost?'Room host':p.online?'Ready to play':'Disconnected'}</small></div>${v.isHost&&p.id!==myId?`<button class="icon-button" data-action="remove-player" data-player="${html(p.id)}" title="Remove player">✕</button>`:''}</div>`).join('')}</div>
-<div class="setup-row" style="margin-top:18px"><div class="field"><label>Rounds</label><div class="tag accent" style="padding:15px">♾ Unlimited — host ends the match</div></div><div class="field"><label>Scoring</label><div class="tag" style="padding:15px">A = 1 · J = 11 · Q = 12 · K = 13</div></div></div>
+<div class="setup-row" style="margin-top:18px"><div class="field"><label>Rounds</label><div class="tag accent" style="padding:15px">♾ Unlimited — host ends the match</div></div><div class="field"><label>Scoring</label><div class="tag" style="padding:15px">3 = 3 · 10 = 10 · J = 11 · Q = 12 · K = 13</div></div></div>
 <div class="setup-buttons">${v.isHost?`<button class="btn primary" data-action="start" ${v.players.length<2?'disabled':''}>▶ Start game</button>`:'<div class="tag accent" style="padding:15px">Waiting for the host to start…</div>'}<button class="btn tertiary" data-action="rules">📖 Rules</button></div><p class="smallnote">A match needs 2–8 players. With an odd player count, some players may receive one extra card. Bot turns are automatic.</p></section>`;}
 function boardView(board,lastCard){
  const rows=SUITS.map(s=>{
@@ -106,7 +106,7 @@ function boardView(board,lastCard){
   if(!lane){
    content.push('<span class="table-slot empty-seven" title="Play the seven of '+SUIT_NAMES[s]+' to open this suit"><span>'+SUIT_ICONS[s]+'</span><b>7</b></span>');
   }else{
-   if(lane.lo>1)content.push('<span class="table-slot next-slot" title="Next: '+valueName(lane.lo-1)+' '+SUIT_ICONS[s]+'">'+valueName(lane.lo-1)+'</span>');
+   if(lane.lo>3)content.push('<span class="table-slot next-slot" title="Next: '+valueName(lane.lo-1)+' '+SUIT_ICONS[s]+'">'+valueName(lane.lo-1)+'</span>');
    for(const rank of ranks){
     const isLatest=lastCard?.suit===s&&lastCard?.rank===rank;
     const label=valueName(rank)+' of '+SUIT_NAMES[s];
@@ -116,7 +116,7 @@ function boardView(board,lastCard){
   }
   return '<div class="felt-row"><div class="felt-suit suit-'+s+'" title="'+SUIT_NAMES[s]+'">'+SUIT_ICONS[s]+'</div><div class="felt-track" role="group" aria-label="'+SUIT_NAMES[s]+' cards">'+content.join('')+'</div></div>';
  }).join('');
- return '<div class="board felt-board"><div class="felt-heading">THE SEVENS TABLE <span>♦ ♣ ♥ ♠</span></div><div class="board-scroll" role="region" aria-label="Cards on the table" tabindex="0">'+rows+'</div><p class="felt-caption">Build each suit from 7 down to Ace and up to King</p></div>';
+ return '<div class="board felt-board"><div class="felt-heading">THE SEVENS TABLE <span>♦ ♣ ♥ ♠</span></div><div class="board-scroll" role="region" aria-label="Cards on the table" tabindex="0">'+rows+'</div><p class="felt-caption">Build each suit from 7 down to 3 and up to King · Aces and 2s removed</p></div>';
 }
 
 function cardElement(card,legal){const c=packCard(card);return `<button class="playingcard suit-${card.suit} ${card.suit==='H'||card.suit==='D'?'red':''} ${legal?'legal':'locked'}" data-action="play" data-card="${c}" data-rank="${valueName(card.rank)}" data-suit="${SUIT_ICONS[card.suit]}" ${legal?'':'disabled'} title="${valueName(card.rank)} of ${SUIT_NAMES[card.suit]}${legal?' – Tap to play':''}"><span><span class="toprank">${valueName(card.rank)}</span><br><span class="topsuit">${SUIT_ICONS[card.suit]}</span></span><span class="center-suit">${SUIT_ICONS[card.suit]}</span></button>`;}
@@ -152,7 +152,7 @@ function resultsView(){const v=currentView,final=v.phase==='finished';const r=v.
 function render(){if(document.documentElement?.setAttribute){document.documentElement.setAttribute('data-theme',tableTheme);document.documentElement.classList?.toggle('no-motion',!animationsEnabled);}if(screen==='home')app.innerHTML=header()+homeView()+footer();else if(screen==='join')app.innerHTML=header()+joinView()+footer();else if(screen==='friends')app.innerHTML=header()+friendsView()+footer();else if(screen==='loading')app.innerHTML=header()+loadingView()+footer();else if(screen==='room'&&currentView){let body=currentView.phase==='lobby'?lobbyView():currentView.phase==='playing'?boardGameView():resultsView();app.innerHTML=header()+body+footer();const log=$('#chatlog');if(log)log.scrollTop=log.scrollHeight;syncVoice();announceMove();}else {screen='home';app.innerHTML=header()+homeView()+footer();}}
 function makeRoom(code, solo, name) {const id='host-'+uid();return {code,solo,phase:'lobby',roundIndex:0,seats:[{id,name,isBot:false,score:0,connected:true,isHost:true}],chat:[],game:null,lastRound:null,history:[],owner:id};}
 function getView(pid){const r=hostRoom;const g=r.game,player=r.seats.find(p=>p.id===pid);return {code:r.code,phase:r.phase,isHost:pid===r.owner,roundIndex:r.roundIndex,players:r.seats.map(p=>({id:p.id,name:p.name,score:p.score,isBot:p.isBot,isHost:!!p.isHost,online:p.connected,cardCount:g?.hands?.[p.id]?.length||0})),myHand:g?.hands?.[pid]||[],legal:r.phase==='playing'&&g?.turnId===pid?legalMoves(g.hands[pid],g.board):[],game:g?{board:g.board,turnId:g.turnId,lastCard:g.lastCard,lastAction:g.lastAction}:null,lastRound:r.lastRound,chat:r.chat.slice(-70),history:r.history.slice(-10),you:player?.name||'Player',voicePeers:r.seats.filter(x=>!x.isBot).map(x=>({id:x.id,name:x.name,peerId:x.peerId||null,voiceOn:!!x.voiceOn,voiceMuted:!!x.voiceMuted,isBot:false}))};}
-function saveSolo(){if(hostRoom?.solo){try{store.setItem('syam7-solo-v1',JSON.stringify(hostRoom));}catch{}}}
+function saveSolo(){if(hostRoom?.solo){try{store.setItem('syam7-solo-v3-k44',JSON.stringify(hostRoom));}catch{}}}
 function broadcast(){if(!hostRoom)return;currentView=getView(hostRoom.owner);screen='room';saveSolo();render();for(const [pid,c] of conns){if(c.open)try{c.send({type:'state',view:getView(pid)});}catch{}};scheduleBot();}
 function setupLocal(){stopNetwork();const name=saveName();role='host';isSolo=true;hostRoom=makeRoom('SOLO',true,name);myId=hostRoom.owner;addBot();addBot();broadcast();}
 

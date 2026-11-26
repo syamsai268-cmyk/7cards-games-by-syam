@@ -1,4 +1,4 @@
-// 7Cards Games v1.8.0: zero-dependency CI checks. Run: node scripts/check-release.mjs
+// 7Cards Games v1.9.0: zero-dependency CI checks. Run: node scripts/check-release.mjs
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
@@ -11,9 +11,9 @@ const html=readFileSync(resolve(root,'index.html'),'utf8');
 const css=readFileSync(resolve(root,'styles.css'),'utf8');
 const code=readFileSync(resolve(root,'app.js'),'utf8');
 const sw=readFileSync(resolve(root,'sw.js'),'utf8');
-assert.match(html,/7Cards Games v1\.8\.0/);
-assert.match(html,/styles\.css\?v=1\.8\.0/);
-assert.match(html,/app\.js\?v=1\.8\.0/);
+assert.match(html,/7Cards Games v1\.9\.0/);
+assert.match(html,/styles\.css\?v=1\.9\.0/);
+assert.match(html,/app\.js\?v=1\.9\.0/);
 assert.match(css,/\.suit-name\.suit-H/);
 assert.match(css,/\.suit-name\.suit-D/);
 assert.match(css,/\.suit-name\.suit-C/);
@@ -24,7 +24,7 @@ assert.match(code,/sendMicrophoneAudio/);
 assert.match(code,/handleVoiceAudio/);
 assert.match(code,/navigator\.mediaDevices\.getUserMedia/);
 assert.doesNotMatch(code,/peer\.call\(/,'Game voice does not depend on WebRTC NAT traversal');
-assert.match(sw,/7cards-syam-v1\.8\.0/);
+assert.match(sw,/7cards-syam-v1\.9\.0/);
 
 // Execute the actual game JavaScript with a small browser DOM stub and test its exported rules.
 const eventTarget=()=>({innerHTML:'',textContent:'',classList:{add(){},remove(){}},addEventListener(){},showModal(){},close(){},scrollTop:0});
@@ -83,7 +83,25 @@ assert.match(compact,/table-icon/,'Played card suit symbol must be visible');
 assert.match(compact,/empty-seven/,'Unopened suits still show a seven');
 const end3=window.Syam7Test.boardView({H:{lo:3,hi:7},D:null,C:null,S:null},{suit:'H',rank:3});
 assert.doesNotMatch(end3,/Next: 2/,'No lower frontier below 3');
-assert.ok(window.Syam7Test.getHostRoom().game.hands && Object.values(window.Syam7Test.getHostRoom().game.hands).flat().length===44,'Round deals all 44 cards');
+assert.ok(window.Syam7Test.getHostRoom().game.hands,'Round creates hands');
+const soloHands=Object.values(window.Syam7Test.getHostRoom().game.hands);
+assert.equal(new Set(soloHands.map(h=>h.length)).size,1,'Bot game deals equal cards per person');
+for(let players=2;players<=8;players++){
+ const {cards,setAside,cardsPerPlayer}=window.Syam7Test.equalDealDeck(players);
+ assert.equal(cards.length+setAside.length,44,'All 44 cards accounted for');
+ assert.equal(setAside.length,44%players,'Remainder excluded');
+ assert.equal(cardsPerPlayer,Math.floor(44/players),'Equal hand size');
+ assert.equal(cards.length%players,0,'Deck divisible after set-aside');
+ assert.ok(cards.some(c=>c.suit==='H'&&c.rank===7),'7 hearts must remain playable');
+ assert.ok(cards.every(c=>c.rank>=3&&c.rank<=13),'No Ace or 2');
+ assert.ok(setAside.every(c=>c.rank===13),'Set aside only Kings to avoid breaking chains');
+ const all=cards.concat(setAside).map(packCard);
+ assert.equal(new Set(all).size,44,'No duplicated card');
+ for(const suit of ['H','D','C','S']){
+  const kept=cards.filter(c=>c.suit===suit).map(c=>c.rank).sort((a,b)=>a-b);
+  assert.deepEqual(kept,Array.from({length:kept.length},(_,i)=>i+3),'Every suit stays contiguous from 3');
+ }
+}
 assert.match(css,/\.welcome-panel/);
 assert.match(css,/\.felt-board/);
 assert.match(css,/\.table-played/);
@@ -94,12 +112,20 @@ assert.match(css,/data-theme="galaxy"/);
 assert.match(css,/data-theme="neon"/);
 assert.match(css,/@media\(max-width:700px\)/,'Phone layout must be explicit');
 
-console.log('✓ v1.8.0: file structure, stylesheet, voice controls, SW version, game rules and author verified');
+console.log('✓ v1.9.0: fair equal-deals, 2-8 players, PUBG-style microphone and existing game validations passed');
 
-// Regression: first-child selector must not hide the wrapped Voice button on phones.
+// Regression: team microphone is shown in a dock, not an old header voice menu.
 assert.doesNotMatch(css,/\.top-actions \.pill:first-child\{display:none\}/);
 assert.match(css,/\.top-actions > \.pill\[data-action="rules"\]\{display:none\}/);
-assert.match(css,/\.topbar \.top-actions \.voice-trigger/);
+assert.doesNotMatch(window.Syam7Test.header(),/voice-trigger/,'Remove the old header Voice button');
+assert.match(code,/function micDock\(/,'In-game microphone dock exists');
+assert.match(code,/case 'mic-toggle'/,'Tapping microphone joins or mutes');
+assert.match(code,/case 'mic-leave'/,'Players can leave voice');
+assert.match(code,/data-action="mic-toggle"/,'Mic control is tap-friendly');
+assert.match(css,/\.pubg-mic-button/,'Mic has large visible controls');
+assert.match(css,/\.team-voice-dock/,'Mic dock stays visible in room');
+assert.match(css,/@media\(max-width:700px\)/,'Mic mobile breakpoint');
+assert.doesNotMatch(app.innerHTML,/Syam’s Free Voice Host/,'Scripted voice host is removed from game UI');
 
 assert.match(code,/const RELAY_URL = 'wss:\/\//,'Hosted WebSocket room relay must be used');
 assert.match(code,/new WebSocket\(RELAY_URL\)/,'Host and guest must use relay');

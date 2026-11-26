@@ -35,6 +35,42 @@ const themeLabels = {ocean:'Ocean',classic:'Classic green',galaxy:'Galaxy',neon:
 
 let toastTimeout = null, botTimeout = null, joinTimeout = null;
 let loadingMessage = '', lastError = '';
+let networkState='idle', networkLatency=null, networkHeartbeat=null, lastPong=0, chatDraft='';
+const NETWORK_HEALTH_URL='https://sevencards-room-relay-syam.onrender.com/health';
+const networkLabels={idle:'Not connected',checking:'Connecting',online:'Connected',slow:'Slow connection',offline:'Offline',waking:'Waking server'};
+function setNetworkState(state,latency){
+ networkState=state;
+ if(Number.isFinite(latency))networkLatency=Math.max(0,Math.round(latency));
+ const el=document.getElementById?.('networkIndicator');
+ if(el){el.dataset.state=state;el.textContent=(state==='online'?'🟢 ':state==='offline'?'🔴 ':'🟡 ')+(networkLabels[state]||'Checking')+(state==='online'&&networkLatency!==null?' · '+networkLatency+' ms':'');}
+}
+function networkStatusView(){
+ if(isSolo||!(screen==='room'||screen==='loading'))return '';
+ return '<div class="network-status"><span role="status" aria-live="polite" id="networkIndicator" data-state="'+html(networkState)+'">'+(networkState==='online'?'🟢 ':networkState==='offline'?'🔴 ':'🟡 ')+html(networkLabels[networkState]||'Connecting')+'</span><button data-action="check-network" title="Check room connection">↻ Check network</button></div>';
+}
+function warmRoomServer(){
+ if(!/^https?:$/.test(location.protocol)||typeof window.fetch!=='function')return;
+ window.fetch(NETWORK_HEALTH_URL,{mode:'cors',cache:'no-store'}).catch(()=>{});
+}
+function pingRoomServer(){
+ if(navigator.onLine===false){setNetworkState('offline');return false;}
+ if(relaySocket?.readyState!==WebSocket.OPEN){setNetworkState('checking');return false;}
+ setNetworkState('checking');return relaySend(relaySocket,{type:'ping',sent:Date.now()});
+}
+function handleRoomPong(m){lastPong=Date.now();setNetworkState('online',Number(m?.sent)>0?Date.now()-Number(m.sent):null);}
+function startNetworkMonitor(ws){
+ clearInterval(networkHeartbeat);lastPong=Date.now();
+ networkHeartbeat=setInterval(()=>{
+  if(ws!==relaySocket){clearInterval(networkHeartbeat);return;}
+  if(navigator.onLine===false){setNetworkState('offline');return;}
+  if(ws.readyState!==WebSocket.OPEN){setNetworkState('checking');return;}
+  if(Date.now()-lastPong>38000)setNetworkState('slow');
+  relaySend(ws,{type:'ping',sent:Date.now()});
+ },12000);
+}
+window.addEventListener?.('offline',()=>setNetworkState('offline'));
+window.addEventListener?.('online',()=>{if(relaySocket)pingRoomServer();else warmRoomServer();});
+
 const getSavedSolo = () => {try {const a=JSON.parse(store.getItem('syam7-solo-v3-k44'));return a?.phase?a:null;}catch{return null;}};
 const html = (x='') => String(x).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const valueName = r => ({11:'J',12:'Q',13:'K'}[r]||String(r));
@@ -64,13 +100,13 @@ function themePanel(){
 function header(){
  const inMatch=screen==='room'&&currentView?.phase==='playing';
  const inRoom=screen==='room'&&!!currentView;
- return '<header class="topbar '+(inMatch?'topbar-match':'')+'"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">MADE BY SYAM <span class="version-mark">V1.7.1</span></div></div></div>'+
+ return '<header class="topbar '+(inMatch?'topbar-match':'')+'"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">MADE BY SYAM <span class="version-mark">V1.7.2</span></div></div></div>'+
  '<div class="top-actions">'+
  (inRoom?'<button class="pill room-pill" data-action="copy" title="Copy the room invite">🔗 '+html(currentView.code)+' ⧉</button>':'')+
  '<div class="theme-anchor"><button class="pill theme-trigger" data-action="theme-menu" aria-expanded="'+themeMenuOpen+'" title="Change table theme" aria-label="Table themes">🎨 <span class="desktop-label">Themes</span></button>'+(themeMenuOpen?themePanel():'')+'</div>'+
  '<button class="pill sound-trigger" data-action="sound" title="Toggle sounds">'+(audioEnabled?'🔊':'🔇')+' <span class="desktop-label">Sound</span></button>'+
  '<div class="voice-anchor"><button class="pill voice-trigger '+(voiceStream?'voice-live':'')+'" data-action="voice-menu" aria-controls="voicePopover" aria-expanded="'+voiceMenuOpen+'" aria-label="Friends voice chat">🎙️ <span class="desktop-label">'+(voiceStream?(voiceMuted?'Muted':'Voice on'):'Voice')+'</span></button>'+(voiceMenuOpen?voicePanel(inRoom?currentView:null):'')+'</div>'+
- (inMatch?'<button class="pill chat-trigger '+(chatMenuOpen?'chat-active':'')+'" data-action="chat-menu" title="Friends chat" aria-label="Open friends chat">💬</button>':'')+
+ (inRoom?'<button class="pill chat-trigger '+(chatMenuOpen?'chat-active':'')+'" data-action="chat-menu" title="Friends chat" aria-label="Open friends chat">💬</button>':'')+
  (screen!=='home'?'<button class="pill home-trigger" data-action="home" title="Go home">⌂ <span class="desktop-label">Home</span></button>':'')+
  '</div></header>';
 }
@@ -90,14 +126,14 @@ function homeView(){
  '</section><p class="welcome-footnote">44 cards · No Aces or 2s · Unlimited rounds · Private invites · Voice with friends</p></section>';
 }
 
-function friendsView() {return `<section class="setup surface"><div class="section-header"><h2>Create a friends room ♣</h2><button class="smallbtn" data-action="home">← Back</button></div><p class="setup-intro">Open your own private card table, invite friends using a shareable link, and optionally add bots before you begin. Play unlimited rounds and end the match whenever your group is ready.</p><div class="field"><label for="yourName">Your player name</label><input id="yourName" maxlength="22" value="${html(playerName)}" placeholder="Your name"></div><div class="setup-buttons"><button class="btn primary" data-action="create-online">🔗 Create private room →</button><button class="btn secondary" data-action="join-screen">Join someone else’s room</button></div><p class="hint">The host browser stays open during the match. Use a hosted HTTPS link for online multiplayer.</p></section>`;}
+function friendsView() {return `<section class="setup surface"><div class="section-header"><h2>Create a friends room ♣</h2><button class="smallbtn" data-action="home">← Back</button></div><p class="setup-intro">Open your own private card table, invite friends using a shareable link, and optionally add bots before you begin. Play unlimited rounds and end the match whenever your group is ready.</p>${lastError?`<p class="network-error" role="alert">⚠️ ${html(lastError)} <button data-action="create-online">Retry</button></p>`:""}<div class="field"><label for="yourName">Your player name</label><input id="yourName" maxlength="22" value="${html(playerName)}" placeholder="Your name"></div><div class="setup-buttons"><button class="btn primary" data-action="create-online">🔗 Create private room →</button><button class="btn secondary" data-action="join-screen">Join someone else’s room</button></div><p class="hint">The host browser stays open during the match. Use a hosted HTTPS link for online multiplayer.</p></section>`;}
 function joinView() {return `<section class="setup surface"><div class="section-header"><h2>Join the table ♠</h2><button class="smallbtn" data-action="home">← Back</button></div><p class="setup-intro">Join your friends using their invite link or 6-character room code. Everyone plays in their own browser.</p>${gameCode?`<div class="join-banner">🔗 <div><strong>You've been invited!</strong><div class="muted">Room: ${html(gameCode)}</div></div></div>`:''}<div class="field"><label for="yourName">Your player name</label><input id="yourName" maxlength="22" value="${html(playerName)}" placeholder="Your name"></div><div class="field"><label for="joinCode">Room code</label><input id="joinCode" maxlength="8" style="letter-spacing:3px;text-transform:uppercase" value="${html(gameCode)}" placeholder="ABC123"></div><div class="setup-buttons"><button class="btn primary" data-action="join">Join room →</button><button class="btn tertiary" data-action="solo">Play bots instead</button></div>${lastError?`<p class="hint" style="color:#ffd4ab;font-weight:800">⚠️ ${html(lastError)}</p>`:''}<p class="hint">The room host needs to stay online while everyone plays. Online mode requires an internet connection.</p></section>`;}
-function loadingView(){return `<section class="setup surface loading"><div class="spinner"></div><h2>${html(loadingMessage||'Connecting...')}</h2><p class="muted">${html(lastError||'Connecting players securely through the online room service.')}</p><button class="btn tertiary" data-action="home">Cancel</button></section>`;}
+function loadingView(){return `<section class="setup surface loading"><div class="spinner"></div><h2>${html(loadingMessage||'Connecting...')}</h2><p class="muted">${html(lastError||'Checking your room connection.')}</p><p class="loading-note">If the free room server has been idle, the first connection can take longer while it wakes up.</p><div class="loading-buttons"><button class="btn secondary" data-action="retry-room">↻ Retry connection</button><button class="btn tertiary" data-action="home">Cancel</button></div></section>`;}
 function playerChip(p,idx) {const active=currentView.game&&currentView.game.turnId===p.id;return `<div class="player ${active?'active':''} ${p.id===myId?'me':''}"><div class="player-name">${p.isBot?BOT_EMOJIS[idx%BOT_EMOJIS.length]:'👤'} ${html(p.name)} ${p.id===myId?'(You)':''}</div><div class="player-stat"><span>🃏 ${p.cardCount} cards</span><span>${active?'<span class="player-dot">● TURN</span>':p.isBot?'BOT':p.online?'ONLINE':'AUTO BOT'}</span></div></div>`;}
 function lobbyView(){const v=currentView;return `<section class="setup surface" style="max-width:900px"><div class="section-header"><h2>${isSolo?'Play with bots 🤖':'Private game lobby ♣'}</h2><span class="tag accent">${v.players.length}/8 players</span></div><p class="setup-intro">${isSolo?'Choose how many bots to face, then start the match.':'Invite friends to your private table. You can also add bots to fill empty seats.'}</p>${!isSolo?`<div class="invite"><div><small>ROOM CODE</small><div class="room-code">${html(v.code)}</div></div><div class="invite-actions"><button class="btn primary" data-action="copy">⧉ Copy link</button><button class="btn tertiary" data-action="share">↗ Share</button></div></div>`:''}
 <div class="section-header" style="margin-top:24px"><h2 style="font-size:20px">Players at the table</h2>${v.isHost?'<button class="smallbtn" data-action="add-bot">+ Add a bot</button>':''}</div><div class="lobby-players">${v.players.map((p,i)=>`<div class="lobby-person"><div><b>${p.isBot?'🤖':'👤'} ${html(p.name)} ${p.id===myId?'(You)':''}</b><small>${p.isBot?'Computer player':p.isHost?'Room host':p.online?'Ready to play':'Disconnected'}</small></div>${v.isHost&&p.id!==myId?`<button class="icon-button" data-action="remove-player" data-player="${html(p.id)}" title="Remove player">✕</button>`:''}</div>`).join('')}</div>
 <div class="setup-row" style="margin-top:18px"><div class="field"><label>Rounds</label><div class="tag accent" style="padding:15px">♾ Unlimited — host ends the match</div></div><div class="field"><label>Scoring</label><div class="tag" style="padding:15px">3 = 3 · 10 = 10 · J = 11 · Q = 12 · K = 13</div></div></div>
-<div class="setup-buttons">${v.isHost?`<button class="btn primary" data-action="start" ${v.players.length<2?'disabled':''}>▶ Start game</button>`:'<div class="tag accent" style="padding:15px">Waiting for the host to start…</div>'}<button class="btn tertiary" data-action="rules">📖 Rules</button></div><p class="smallnote">A match needs 2–8 players. With an odd player count, some players may receive one extra card. Bot turns are automatic.</p></section>`;}
+<div class="setup-buttons">${v.isHost?`<button class="btn primary" data-action="start" ${v.players.length<2?'disabled':''}>▶ Start game</button>`:'<div class="tag accent" style="padding:15px">Waiting for the host to start…</div>'}<button class="btn tertiary" data-action="rules">📖 Rules</button></div><p class="smallnote">A match needs 2–8 players. With an odd player count, some players may receive one extra card. Bot turns are automatic.</p></section><div class="chat-layer lobby-chat ${chatMenuOpen?'chat-open':''}">${chatView(v)}<button class="chat-dismiss" data-action="chat-menu">Close chat ✕</button></div>`;} 
 function boardView(board,lastCard){
  const rows=SUITS.map(s=>{
   const lane=board[s];
@@ -131,7 +167,7 @@ function voicePanel(v){
     <p class="voice-pop-foot">Voice audio is streamed within this room. No voice recordings are saved.</p>
   </section>`;
 }
-function chatView(v){return `<section class="panel surface"><h3 class="side-title">💬 Table talk</h3><div class="chatlog" id="chatlog">${(v.chat||[]).map(x=>`<div class="chat-line ${x.system?'system':''}">${x.system?html(x.text):`<b>${html(x.name)}:</b> ${html(x.text)}`}</div>`).join('')}</div><div class="chatbox"><input id="chatInput" type="text" placeholder="Say something nice…" maxlength="140" autocomplete="off"><button data-action="chat" title="Send message">➤</button></div><div class="reactions">${['👏','🔥','😎','❤️'].map(e=>`<button data-action="reaction" data-emoji="${e}" title="Send reaction">${e}</button>`).join('')}</div></section>`;}
+function chatView(v){return `<section class="panel surface"><h3 class="side-title">💬 Table talk</h3><div class="chatlog" id="chatlog">${(v.chat||[]).map(x=>`<div class="chat-line ${x.system?'system':''}">${x.system?html(x.text):`<b>${html(x.name)}:</b> ${html(x.text)}`}</div>`).join('')}</div><div class="chatbox"><input id="chatInput" type="text" placeholder="Say something nice…" value="${html(chatDraft)}" maxlength="140" autocomplete="off"><button data-action="chat" title="Send message">➤</button></div><div class="reactions">${['👏','🔥','😎','❤️'].map(e=>`<button data-action="reaction" data-emoji="${e}" title="Send reaction">${e}</button>`).join('')}</div></section>`;}
 function boardGameView(){
  const v=currentView,g=v.game,turn=g.turnId===myId,legal=new Set(v.legal.map(packCard));
  const who=v.players.find(p=>p.id===g.turnId);
@@ -148,8 +184,8 @@ function boardGameView(){
  '</aside></div>';
 }
 
-function resultsView(){const v=currentView,final=v.phase==='finished';const r=v.lastRound||{points:{},winnerName:'',empty:''};const winnerScore=Math.min(...v.players.map(p=>p.score));const champs=v.players.filter(p=>p.score===winnerScore);const played=v.completedRounds||0;return `<section class="surface result"><div class="trophy">${final?'🏆':'🎉'}</div><div class="eyebrow">${final?'MATCH COMPLETE':'ROUND '+v.roundIndex+' COMPLETE'}</div><h2>${final?champs.map(x=>html(x.name)).join(' & ')+' wins!':html(r.winnerName)+' cleared their hand!'}</h2><p class="muted">${final?`After ${played} completed round${played===1?'':'s'}, the lowest total is <b style="color:var(--gold)">${winnerScore} points</b>.${played<v.roundIndex?' The unfinished round was not counted.':''}`: 'Cards left in hand are counted as penalty points. Lower is better! Play another round or end the match anytime.'}</p><div class="result-table">${[...v.players].sort((a,b)=>a.score-b.score).map((p,i)=>`<div class="result-row"><span>${i===0?'🥇 ':''}${html(p.name)} ${p.id===myId?'(You)':''}</span><span>${!final?`+${r.points[p.id]??0} · `:''}<b>${p.score} total</b></span></div>`).join('')}</div><div class="result-buttons">${v.isHost?final?'<button class="btn primary" data-action="rematch">↻ Start a new match</button>':`<button class="btn primary" data-action="next">▶ Play round ${v.roundIndex+1}</button><button class="btn secondary" data-action="end-match">🏁 End match & see winner</button>`:'<span class="tag accent" style="padding:15px">Waiting for the host…</span>'}<button class="btn tertiary" data-action="copy" ${isSolo?'disabled':''}>🔗 Copy invite</button><button class="btn tertiary" data-action="home">⌂ Home</button></div></section><div style="max-width:700px;margin:14px auto">${chatView(v)}</div>`;}
-function render(){if(document.documentElement?.setAttribute){document.documentElement.setAttribute('data-theme',tableTheme);document.documentElement.classList?.toggle('no-motion',!animationsEnabled);}if(screen==='home')app.innerHTML=header()+homeView()+footer();else if(screen==='join')app.innerHTML=header()+joinView()+footer();else if(screen==='friends')app.innerHTML=header()+friendsView()+footer();else if(screen==='loading')app.innerHTML=header()+loadingView()+footer();else if(screen==='room'&&currentView){let body=currentView.phase==='lobby'?lobbyView():currentView.phase==='playing'?boardGameView():resultsView();app.innerHTML=header()+body+footer();const log=$('#chatlog');if(log)log.scrollTop=log.scrollHeight;syncVoice();announceMove();}else {screen='home';app.innerHTML=header()+homeView()+footer();}}
+function resultsView(){const v=currentView,final=v.phase==='finished';const r=v.lastRound||{points:{},winnerName:'',empty:''};const winnerScore=Math.min(...v.players.map(p=>p.score));const champs=v.players.filter(p=>p.score===winnerScore);const played=v.completedRounds||0;return `<section class="surface result"><div class="trophy">${final?'🏆':'🎉'}</div><div class="eyebrow">${final?'MATCH COMPLETE':'ROUND '+v.roundIndex+' COMPLETE'}</div><h2>${final?champs.map(x=>html(x.name)).join(' & ')+' wins!':html(r.winnerName)+' cleared their hand!'}</h2><p class="muted">${final?`After ${played} completed round${played===1?'':'s'}, the lowest total is <b style="color:var(--gold)">${winnerScore} points</b>.${played<v.roundIndex?' The unfinished round was not counted.':''}`: 'Cards left in hand are counted as penalty points. Lower is better! Play another round or end the match anytime.'}</p><div class="result-table">${[...v.players].sort((a,b)=>a.score-b.score).map((p,i)=>`<div class="result-row"><span>${i===0?'🥇 ':''}${html(p.name)} ${p.id===myId?'(You)':''}</span><span>${!final?`+${r.points[p.id]??0} · `:''}<b>${p.score} total</b></span></div>`).join('')}</div><div class="result-buttons">${v.isHost?final?'<button class="btn primary" data-action="rematch">↻ Start a new match</button>':`<button class="btn primary" data-action="next">▶ Play round ${v.roundIndex+1}</button><button class="btn secondary" data-action="end-match">🏁 End match & see winner</button>`:'<span class="tag accent" style="padding:15px">Waiting for the host…</span>'}<button class="btn tertiary" data-action="copy" ${isSolo?'disabled':''}>🔗 Copy invite</button><button class="btn tertiary" data-action="home">⌂ Home</button></div></section><div class="chat-layer results-chat ${chatMenuOpen?'chat-open':''}">${chatView(v)}<button class="chat-dismiss" data-action="chat-menu">Close chat ✕</button></div>`;}
+function render(){if(document.documentElement?.setAttribute){document.documentElement.setAttribute('data-theme',tableTheme);document.documentElement.classList?.toggle('no-motion',!animationsEnabled);}if(screen==='home')app.innerHTML=header()+homeView()+footer();else if(screen==='join')app.innerHTML=header()+joinView()+footer();else if(screen==='friends')app.innerHTML=header()+friendsView()+footer();else if(screen==='loading')app.innerHTML=header()+networkStatusView()+loadingView()+footer();else if(screen==='room'&&currentView){let body=currentView.phase==='lobby'?lobbyView():currentView.phase==='playing'?boardGameView():resultsView();app.innerHTML=header()+networkStatusView()+body+footer();const log=$('#chatlog');if(log)log.scrollTop=log.scrollHeight;syncVoice();announceMove();}else {screen='home';app.innerHTML=header()+homeView()+footer();}}
 function makeRoom(code, solo, name) {const id='host-'+uid();return {code,solo,phase:'lobby',roundIndex:0,seats:[{id,name,isBot:false,score:0,connected:true,isHost:true}],chat:[],game:null,lastRound:null,history:[],owner:id};}
 function getView(pid){const r=hostRoom;const g=r.game,player=r.seats.find(p=>p.id===pid);return {code:r.code,phase:r.phase,isHost:pid===r.owner,roundIndex:r.roundIndex,players:r.seats.map(p=>({id:p.id,name:p.name,score:p.score,isBot:p.isBot,isHost:!!p.isHost,online:p.connected,cardCount:g?.hands?.[p.id]?.length||0})),myHand:g?.hands?.[pid]||[],legal:r.phase==='playing'&&g?.turnId===pid?legalMoves(g.hands[pid],g.board):[],game:g?{board:g.board,turnId:g.turnId,lastCard:g.lastCard,lastAction:g.lastAction}:null,lastRound:r.lastRound,chat:r.chat.slice(-70),history:r.history.slice(-10),you:player?.name||'Player',voicePeers:r.seats.filter(x=>!x.isBot).map(x=>({id:x.id,name:x.name,peerId:x.peerId||null,voiceOn:!!x.voiceOn,voiceMuted:!!x.voiceMuted,isBot:false}))};}
 function saveSolo(){if(hostRoom?.solo){try{store.setItem('syam7-solo-v3-k44',JSON.stringify(hostRoom));}catch{}}}
@@ -160,6 +196,7 @@ function stopNetwork(){
   stopVoice(false);
   clearTimeout(botTimeout); clearTimeout(joinTimeout);
   const ws=relaySocket; relaySocket=null;
+  clearInterval(networkHeartbeat);networkHeartbeat=null;networkLatency=null;networkState='idle';
   if(ws){ws.onmessage=null;ws.onclose=null;ws.onerror=null;try{ws.close();}catch{}}
   for(const c of relayPeers.values())try{c.disconnected();}catch{}
   relayPeers.clear();
@@ -192,9 +229,11 @@ function saveName(){const name=($('#yourName')?.value||playerName||'Player').tri
 
 function createOnline(){
   const name=saveName();stopNetwork();
+  if(navigator.onLine===false){lastError='No internet connection. Switch on Wi-Fi or mobile data.';screen='friends';render();toast(lastError);return;}
+  warmRoomServer();
   const code=randCode();gameCode=code;role='host';isSolo=false;
   hostRoom=makeRoom(code,false,name);myId=hostRoom.owner;
-  screen='loading';loadingMessage='Creating friends room…';lastError='Connecting to the room service';render();
+  screen='loading';loadingMessage='Creating friends room…';lastError='Checking connection to the room server';networkState='checking';render();
   const ws=new WebSocket(RELAY_URL);relaySocket=ws;
   joinTimeout=setTimeout(()=>{
     if(relaySocket===ws&&screen==='loading'){
@@ -202,12 +241,13 @@ function createOnline(){
       stopNetwork();screen='friends';lastError=message;render();toast(message);
     }
   },65000);
-  ws.onopen=()=>relaySend(ws,{type:'create',code});
+  ws.onopen=()=>{startNetworkMonitor(ws);relaySend(ws,{type:'create',code});relaySend(ws,{type:'ping',sent:Date.now()});};
   ws.onmessage=event=>{
     if(relaySocket!==ws)return;
     let m;try{m=JSON.parse(event.data);}catch{return;}
+    if(m.type==='pong'){handleRoomPong(m);return;}
     if(m.type==='created'){
-      clearTimeout(joinTimeout);
+      clearTimeout(joinTimeout);setNetworkState('online');
       setRoute(location.pathname+'?room='+code);
       logSystem('Room created! Share the invite link. Keep this tab open.');
       broadcast();
@@ -231,7 +271,7 @@ function createOnline(){
       toast(message);
     }
   };
-  ws.onerror=()=>{lastError='Room service connection failed. Check your network.';};
+  ws.onerror=()=>{lastError='Room service connection failed. Check your network.';setNetworkState(navigator.onLine===false?'offline':'slow');};
   ws.onclose=()=>{
     if(relaySocket!==ws)return;
     const message=lastError||'Room server disconnected. Create another room.';
@@ -259,7 +299,8 @@ function joinOnline(){
   const name=saveName();
   const code=String($('#joinCode')?.value||gameCode).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
   if(code.length<6){toast('Enter a 6-character room code.');return;}
-  stopNetwork();gameCode=code;role='guest';isSolo=false;screen='loading';
+  if(navigator.onLine===false){lastError='No internet connection. Turn on Wi-Fi or mobile data.';screen='join';render();toast(lastError);return;}
+  stopNetwork();warmRoomServer();gameCode=code;role='guest';isSolo=false;screen='loading';networkState='checking';
   loadingMessage='Joining room '+code+'…';lastError='Checking the invite link and room host';render();
   let token=store.getItem('syam7-token-'+code);
   if(!token||!token.startsWith('p-')){token='p-'+uid();store.setItem('syam7-token-'+code,token);}
@@ -276,10 +317,11 @@ function joinOnline(){
       stopNetwork();screen='join';lastError=message;render();toast(message);
     }
   },65000);
-  ws.onopen=()=>relaySend(ws,{type:'join',code});
+  ws.onopen=()=>{startNetworkMonitor(ws);relaySend(ws,{type:'join',code});relaySend(ws,{type:'ping',sent:Date.now()});};
   ws.onmessage=event=>{
     if(relaySocket!==ws)return;
     let m;try{m=JSON.parse(event.data);}catch{return;}
+    if(m.type==='pong'){handleRoomPong(m);return;}
     if(m.type==='connected'){
       guestConn.send({type:'join',token,name});
       initVoicePeer();
@@ -290,7 +332,7 @@ function joinOnline(){
       if(data?.type==='joined'){
         myId=data.id;setRoute(location.pathname+'?room='+code);
       }else if(data?.type==='state'){
-        clearTimeout(joinTimeout);currentView=data.view;screen='room';lastError='';render();
+        clearTimeout(joinTimeout);currentView=data.view;screen='room';lastError='';setNetworkState('online');render();
       }else if(data?.type==='error'){
         const message=data.message||'Cannot join this room.';
         stopNetwork();screen='join';lastError=message;render();toast(message);
@@ -300,7 +342,7 @@ function joinOnline(){
       stopNetwork();screen='join';lastError=message;render();toast(message);
     }
   };
-  ws.onerror=()=>{lastError='Room network connection failed. Check your internet and retry.';};
+  ws.onerror=()=>{lastError='Room network connection failed. Check your internet and retry.';setNetworkState(navigator.onLine===false?'offline':'slow');};
   ws.onclose=()=>{
     if(relaySocket!==ws)return;
     const message=lastError||'Disconnected from the room. Ask the host to keep the tab open.';
@@ -511,6 +553,8 @@ app.addEventListener('click',async event=>{const el=event.target.closest('[data-
  case 'theme-menu':themeMenuOpen=!themeMenuOpen;voiceMenuOpen=false;render();break;
  case 'theme-select':if(themeLabels[el.dataset.theme]){tableTheme=el.dataset.theme;store.setItem('syam7-theme',tableTheme);themeMenuOpen=false;render();}break;
  case 'chat-menu':chatMenuOpen=!chatMenuOpen;render();break;
+ case 'check-network':if(!pingRoomServer())toast(navigator.onLine===false?'You are offline. Turn on Wi-Fi or mobile data.':'Room connection unavailable. Retry joining.');break;
+ case 'retry-room':if(role==='host')createOnline();else if(role==='guest')joinOnline();else{screen='home';render();}break;
  case 'quick-start':{const code=String($('#joinCode')?.value||'').trim();if(code)joinOnline();else createOnline();break;}
  case 'sound':audioEnabled=!audioEnabled;store.setItem('syam7-sound',audioEnabled?'on':'off');render();toast(audioEnabled?'Sound enabled':'Sound muted');break;
  case 'voice-menu':voiceMenuOpen=!voiceMenuOpen;themeMenuOpen=false;render();break;
@@ -535,13 +579,19 @@ app.addEventListener('click',async event=>{const el=event.target.closest('[data-
  case 'voice-test':testVoiceSpeaker();break;
  }
 });
-function sendMessage(text){if(role==='host')handleAction(myId,{type:'chat',text});else if(guestConn?.open)guestConn.send({type:'chat',text});}
-function sendChat(){const input=$('#chatInput');if(!input)return;const txt=input.value.trim();if(txt){sendMessage(txt);input.value='';}}
+function sendMessage(text){
+ if(role==='host'&&hostRoom){handleAction(myId,{type:'chat',text});return true;}
+ if(role==='guest'&&guestConn?.open&&relaySocket?.readyState===WebSocket.OPEN&&networkState!=='offline'){guestConn.send({type:'chat',text});return true;}
+ toast('Chat not sent. Please check the network and retry.');setNetworkState('offline');return false;
+}
+function sendChat(){const input=$('#chatInput');if(!input)return;const txt=input.value.trim();if(txt&&sendMessage(txt)){chatDraft='';const latest=$('#chatInput');if(latest)latest.value='';}}
+app.addEventListener('input',e=>{if(e.target.id==='chatInput')chatDraft=e.target.value;});
 app.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='chatInput'){e.preventDefault();sendChat();}if(e.key==='Enter'&&e.target.id==='joinCode')joinOnline();});
 app.addEventListener('change',e=>{if(e.target.id==='animationCheck'){animationsEnabled=!!e.target.checked;store.setItem('syam7-motion',animationsEnabled?'on':'off');render();return;}if(e.target.id==='announcerCheck'){announcerEnabled=!!e.target.checked;store.setItem('syam7-announcer',announcerEnabled?'on':'off');lastAnnouncedAction='';if(!announcerEnabled&&'speechSynthesis' in window)try{speechSynthesis.cancel();}catch{}return;}});
 $('#rulesClose').addEventListener('click',()=>$('#rulesDialog').close());
 $('#rulesDialog').addEventListener('click',e=>{if(e.target.id==='rulesDialog')$('#rulesDialog').close();});
 window.Syam7Test={allCards,legalMoves,makeRoom,shuffle,packCard,boardView,getView,hostControl,getHostRoom:()=>hostRoom,voicePanel,header,encodeVoiceSample,decodeVoiceSample,handleVoiceAudio};
+if(/^https?:$/.test(location.protocol))warmRoomServer();
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).catch(()=>{});}
 render();
 })();

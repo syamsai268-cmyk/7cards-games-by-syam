@@ -18,6 +18,14 @@ test('Two players join one room, exchange cards and detect host leaving', async 
   const url=await listen(), host=new WebSocket(url), guest=new WebSocket(url);
   await Promise.all([once(host,'open'),once(guest,'open')]);
   try {
+    // A room can check relay health even before it has registered.
+    let health=recv(host,'pong');
+    const sent=Date.now();
+    host.send(JSON.stringify({type:'ping',sent}));
+    const reply=await health;
+    assert.equal(reply.sent,sent);
+    assert.ok(Number.isFinite(reply.serverAt));
+
     let message=recv(host,'created');
     host.send(JSON.stringify({type:'create',code:'ABC123'}));
     assert.equal((await message).code,'ABC123');

@@ -9,6 +9,8 @@ const server = http.createServer((req, res) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   if (req.url === '/health') {
+    const origin=req.headers.origin;
+    if(origin && (allowedOrigins.has(origin) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)))res.setHeader('Access-Control-Allow-Origin',origin);
     res.writeHead(200);
     res.end(JSON.stringify({ ok: true, service: '7cards-room-relay', rooms: rooms.size }));
   } else {
@@ -51,6 +53,7 @@ wss.on('connection', (ws, req) => {
     try { msg = JSON.parse(raw.toString()); } catch { fail(ws, 'Invalid message.'); return; }
     if (!msg || typeof msg !== 'object') return;
     const type = msg.type;
+    if (type === 'ping') { safeSend(ws,{type:'pong',sent:Number.isFinite(Number(msg.sent))?Number(msg.sent):0,serverAt:Date.now()}); return; }
     if (type === 'create') {
       const code = String(msg.code || '').toUpperCase();
       if (ws.role || !/^[A-Z0-9]{6,8}$/.test(code)) return fail(ws, 'Invalid room code.');

@@ -29,6 +29,28 @@ test('Two players join one room, exchange cards and detect host leaving', async 
     let message=recv(host,'created');
     host.send(JSON.stringify({type:'create',code:'ABC123'}));
     assert.equal((await message).code,'ABC123');
+    // Private rooms must never appear in public discovery.
+    let publicList=recv(guest,'public-rooms');
+    guest.send(JSON.stringify({type:'public-list'}));
+    assert.deepEqual((await publicList).rooms,[]);
+    let published=recv(host,'published');
+    host.send(JSON.stringify({type:'publish',public:true,phase:'lobby',hostName:'Syam'}));
+    assert.equal((await published).public,true);
+    publicList=recv(guest,'public-rooms');
+    guest.send(JSON.stringify({type:'public-list'}));
+    const openList=(await publicList).rooms;
+    assert.equal(openList.length,1);
+    assert.equal(openList[0].code,'ABC123');
+    assert.equal(openList[0].hostName,'Syam');
+    published=recv(host,'published');
+    host.send(JSON.stringify({type:'publish',public:true,phase:'playing',hostName:'Syam'}));
+    assert.equal((await published).public,false);
+    publicList=recv(guest,'public-rooms');
+    guest.send(JSON.stringify({type:'public-list'}));
+    assert.deepEqual((await publicList).rooms,[]);
+    published=recv(host,'published');
+    host.send(JSON.stringify({type:'publish',public:true,phase:'lobby',hostName:'Syam'}));
+    assert.equal((await published).public,true);
     message=recv(host,'guest-open');
     guest.send(JSON.stringify({type:'join',code:'ABC123'}));
     const {channel}=await message;

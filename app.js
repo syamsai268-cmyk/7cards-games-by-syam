@@ -27,6 +27,8 @@ let voiceStarting = false;
 let voiceMenuOpen = false;
 let themeMenuOpen = false;
 let chatMenuOpen = false;
+let voiceHostEnabled=store.getItem('syam7-voice-host')==='on';
+let lastHostCue='';
 let nextRoomPublic = false, publicRooms = [], publicListStatus = '';
 let publicListSocket = null;
 let tableTheme = ['ocean','classic','galaxy','neon'].includes(store.getItem('syam7-theme')) ? store.getItem('syam7-theme') : 'ocean';
@@ -102,7 +104,7 @@ function themePanel(){
 function header(){
  const inMatch=screen==='room'&&currentView?.phase==='playing';
  const inRoom=screen==='room'&&!!currentView;
- return '<header class="topbar '+(inMatch?'topbar-match':'')+'"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">MADE BY SYAM <span class="version-mark">V1.7.2</span></div></div></div>'+
+ return '<header class="topbar '+(inMatch?'topbar-match':'')+'"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">MADE BY SYAM <span class="version-mark">V1.8</span></div></div></div>'+
  '<div class="top-actions">'+
  (inRoom?'<button class="pill room-pill" data-action="copy" title="Copy the room invite">🔗 '+html(currentView.code)+' ⧉</button>':'')+
  '<div class="theme-anchor"><button class="pill theme-trigger" data-action="theme-menu" aria-expanded="'+themeMenuOpen+'" title="Change table theme" aria-label="Table themes">🎨 <span class="desktop-label">Themes</span></button>'+(themeMenuOpen?themePanel():'')+'</div>'+
@@ -126,9 +128,52 @@ function homeView(){
  '<label class="public-opt"><input id="publicRoom" type="checkbox"> 🌍 Make this table public <span>(optional)</span></label>'+ 
  '<div class="welcome-alt"><button class="btn secondary" data-action="solo">🤖 Practice vs Bots</button><button class="btn tertiary" data-action="rules" aria-label="How to play">ⓘ</button></div>'+
  (saved?'<button class="welcome-resume" data-action="resume">↺ Resume your previous bot game</button>':'')+
- '</section><div class="discover-actions"><button class="btn secondary" data-action="public-tables">🌍 Browse public tables</button><button class="btn tertiary" data-action="share-game">🔗 Share game</button></div><p class="welcome-footnote">44 cards · No Aces or 2s · Unlimited rounds · Private and public games</p></section>';
+ '</section><section class="promo-panel"><strong>🎙️ Syam’s Free Voice Host</strong><p>Hear the welcome, rules, turns and round winners. Free browser speech — no paid AI account.</p><button class="btn secondary" data-action="host-demo">▶ Hear welcome</button></section><div class="discover-actions"><button class="btn secondary" data-action="public-tables">🌍 Browse public tables</button><button class="btn tertiary" data-action="share-game">🔗 Share game</button><button class="btn tertiary" data-action="share-whatsapp">WhatsApp</button></div><p class="welcome-footnote">44 cards · No Aces or 2s · Unlimited rounds · Private and public games</p></section>';
 }
 
+
+
+const promotionText='Play 7Cards Games by Syam! A free Sevens card game with friends, public tables, bots and voice chat. Join: https://sevencards-games-by-syam.onrender.com';
+function shareGamePromotion(){
+ const url='https://sevencards-games-by-syam.onrender.com';
+ if(navigator.share){navigator.share({title:'7Cards Games by Syam',text:'Join a free Sevens card game with friends, bots and public tables!',url}).catch(()=>{});return;}
+ if(navigator.clipboard?.writeText)navigator.clipboard.writeText(promotionText).then(()=>toast('Game link copied — share it with friends!')).catch(()=>toast('Please copy the website link.'));
+ else toast('Share this website: '+url);
+}
+function shareOnWhatsApp(){
+ try{window.open('https://wa.me/?text='+encodeURIComponent(promotionText),'_blank','noopener,noreferrer');}
+ catch{toast('Copy the game link and share it through WhatsApp.');}
+}
+function speakVoiceHost(text,force=false){
+ if((!voiceHostEnabled&&!force)||voiceStream)return false;
+ const synth=window.speechSynthesis, VoiceUtter=window.SpeechSynthesisUtterance;
+ if(!synth||!VoiceUtter){if(force)toast('Voice host is not supported by this browser. Try Chrome.');return false;}
+ try{
+  synth.cancel();
+  const speech=new VoiceUtter(String(text).slice(0,240));
+  speech.lang='en-IN';speech.rate=.97;speech.pitch=1.02;speech.volume=.9;
+  const voices=synth.getVoices?.()||[];
+  const selected=voices.find(v=>String(v.lang).toLowerCase().startsWith('en-in'))||voices.find(v=>String(v.lang).toLowerCase().startsWith('en'));
+  if(selected)speech.voice=selected;
+  synth.speak(speech);return true;
+ }catch(err){console.warn('Browser narration unavailable:',err);if(force)toast('Could not play the voice host on this phone.');return false;}
+}
+function voiceHostWelcome(){
+ voiceHostEnabled=true;store.setItem('syam7-voice-host','on');
+ if(voiceStream){toast('Leave friends voice first to hear the guide.');return;}
+ speakVoiceHost('Welcome to Seven Cards Games, created by Syam! Start with the seven of hearts. Build each suit from three up to king. Join a public table, invite friends, or practice against bots. The lowest total penalty wins. Enjoy playing!',true);
+}
+function maybeVoiceHostCue(){
+ if(!voiceHostEnabled||!currentView||voiceStream)return;
+ const v=currentView;
+ const key=[v.code,v.phase,v.roundIndex,v.game?.turnId,v.game?.lastAction,v.lastRound?.winnerName].join('|');
+ if(key===lastHostCue)return;lastHostCue=key;
+ if(v.phase==='playing'){
+  const player=v.players.find(p=>p.id===myId);
+  if(v.game?.turnId===myId)speakVoiceHost('Your turn, '+(player?.name||'player')+'. Tap a highlighted card, or pass if you have none.');
+  else if(v.game?.lastAction)speakVoiceHost(String(v.game.lastAction).replace(/♥/g,' hearts').replace(/♦/g,' diamonds').replace(/♣/g,' clubs').replace(/♠/g,' spades'));
+ }else if(v.phase==='round_end'&&v.lastRound?.winnerName)speakVoiceHost('Round complete! '+v.lastRound.winnerName+' cleared their cards. Lowest total penalty wins.');
+}
 
 function publicView(){
  const rows=publicRooms.map(room=>'<div class="public-table"><div><strong>🃏 '+html(room.hostName)+'’s table</strong><small>'+room.players+'/'+room.capacity+' players · waiting for friends</small></div><button class="btn secondary" data-action="join-public" data-code="'+html(room.code)+'">Join</button></div>').join('');
@@ -199,6 +244,7 @@ function voicePanel(v){
   return `<section class="voice-popover" id="voicePopover" aria-label="Voice settings">
     <div class="voice-pop-title">🎙️ Voice & sound</div>
     ${online?`<p class="voice-pop-desc">Talk to friends in this room. Microphone access is optional.</p><div class="voice-actions"><button class="btn ${voiceStream?'tertiary':'primary'}" data-action="voice-toggle">${voiceStream?'🔌 Leave voice':'🎙️ Join voice'}</button>${voiceStream?`<button class="btn ${voiceMuted?'primary':'tertiary'}" data-action="voice-mute">${voiceMuted?'🎤 Unmute':'🔇 Mute'}</button>`:''}${voiceStream?'<button class="btn tertiary" data-action="voice-test">🔊 Test speaker</button>':''}</div><div class="voice-members">${(v.voicePeers||[]).filter(x=>!x.isBot).map(x=>`<span class="voice-member ${x.voiceOn?'talking-enabled':''}">${x.voiceOn?(x.voiceMuted?'🔇':'🎙️'):'○'} ${html(x.name)}${x.id===myId?' (You)':''}</span>`).join('')}</div><p class="voice-pop-desc" id="voiceReceiveStatus">${joined} in voice · headphones recommended · ${voiceStream?'Mic ON':'Mic OFF'}</p>`:'<p class="voice-pop-desc">Live voice chat works in friends rooms. You can still enable spoken card moves below.</p>'}
+    <div class="host-guide"><strong>📣 Syam’s Free Voice Host</strong><p>Spoken welcomes, turns and rules. No paid voice API.</p><button class="btn secondary" data-action="host-toggle">${voiceHostEnabled?'🔊 Voice host ON · Turn off':'🔈 Enable voice host'}</button><button class="btn tertiary" data-action="host-demo">▶ Hear demo</button></div>
     <label class="voice-announce"><input type="checkbox" id="announcerCheck" ${announcerEnabled?'checked':''}> 🔊 Announce card moves aloud</label>
     <p class="voice-pop-foot">Voice audio is streamed within this room. No voice recordings are saved.</p>
   </section>`;
@@ -221,7 +267,7 @@ function boardGameView(){
 }
 
 function resultsView(){const v=currentView,final=v.phase==='finished';const r=v.lastRound||{points:{},winnerName:'',empty:''};const winnerScore=Math.min(...v.players.map(p=>p.score));const champs=v.players.filter(p=>p.score===winnerScore);const played=v.completedRounds||0;return `<section class="surface result"><div class="trophy">${final?'🏆':'🎉'}</div><div class="eyebrow">${final?'MATCH COMPLETE':'ROUND '+v.roundIndex+' COMPLETE'}</div><h2>${final?champs.map(x=>html(x.name)).join(' & ')+' wins!':html(r.winnerName)+' cleared their hand!'}</h2><p class="muted">${final?`After ${played} completed round${played===1?'':'s'}, the lowest total is <b style="color:var(--gold)">${winnerScore} points</b>.${played<v.roundIndex?' The unfinished round was not counted.':''}`: 'Cards left in hand are counted as penalty points. Lower is better! Play another round or end the match anytime.'}</p><div class="result-table">${[...v.players].sort((a,b)=>a.score-b.score).map((p,i)=>`<div class="result-row"><span>${i===0?'🥇 ':''}${html(p.name)} ${p.id===myId?'(You)':''}</span><span>${!final?`+${r.points[p.id]??0} · `:''}<b>${p.score} total</b></span></div>`).join('')}</div><div class="result-buttons">${v.isHost?final?'<button class="btn primary" data-action="rematch">↻ Start a new match</button>':`<button class="btn primary" data-action="next">▶ Play round ${v.roundIndex+1}</button><button class="btn secondary" data-action="end-match">🏁 End match & see winner</button>`:'<span class="tag accent" style="padding:15px">Waiting for the host…</span>'}<button class="btn tertiary" data-action="copy" ${isSolo?'disabled':''}>🔗 Copy invite</button><button class="btn tertiary" data-action="home">⌂ Home</button></div></section><div class="chat-layer results-chat ${chatMenuOpen?'chat-open':''}">${chatView(v)}<button class="chat-dismiss" data-action="chat-menu">Close chat ✕</button></div>`;}
-function render(){if(document.documentElement?.setAttribute){document.documentElement.setAttribute('data-theme',tableTheme);document.documentElement.classList?.toggle('no-motion',!animationsEnabled);}if(screen==='home')app.innerHTML=header()+homeView()+footer();else if(screen==='public')app.innerHTML=header()+publicView()+footer();else if(screen==='join')app.innerHTML=header()+joinView()+footer();else if(screen==='friends')app.innerHTML=header()+friendsView()+footer();else if(screen==='loading')app.innerHTML=header()+networkStatusView()+loadingView()+footer();else if(screen==='room'&&currentView){let body=currentView.phase==='lobby'?lobbyView():currentView.phase==='playing'?boardGameView():resultsView();app.innerHTML=header()+networkStatusView()+body+footer();const log=$('#chatlog');if(log)log.scrollTop=log.scrollHeight;syncVoice();announceMove();}else {screen='home';app.innerHTML=header()+homeView()+footer();}}
+function render(){if(document.documentElement?.setAttribute){document.documentElement.setAttribute('data-theme',tableTheme);document.documentElement.classList?.toggle('no-motion',!animationsEnabled);}if(screen==='home')app.innerHTML=header()+homeView()+footer();else if(screen==='public')app.innerHTML=header()+publicView()+footer();else if(screen==='join')app.innerHTML=header()+joinView()+footer();else if(screen==='friends')app.innerHTML=header()+friendsView()+footer();else if(screen==='loading')app.innerHTML=header()+networkStatusView()+loadingView()+footer();else if(screen==='room'&&currentView){let body=currentView.phase==='lobby'?lobbyView():currentView.phase==='playing'?boardGameView():resultsView();app.innerHTML=header()+networkStatusView()+body+footer();const log=$('#chatlog');if(log)log.scrollTop=log.scrollHeight;syncVoice();announceMove();maybeVoiceHostCue();}else {screen='home';app.innerHTML=header()+homeView()+footer();}}
 function makeRoom(code, solo, name) {const id='host-'+uid();return {code,solo,isPublic:false,phase:'lobby',roundIndex:0,seats:[{id,name,isBot:false,score:0,connected:true,isHost:true}],chat:[],game:null,lastRound:null,history:[],owner:id};}
 function getView(pid){const r=hostRoom;const g=r.game,player=r.seats.find(p=>p.id===pid);return {code:r.code,phase:r.phase,isHost:pid===r.owner,roundIndex:r.roundIndex,players:r.seats.map(p=>({id:p.id,name:p.name,score:p.score,isBot:p.isBot,isHost:!!p.isHost,online:p.connected,cardCount:g?.hands?.[p.id]?.length||0})),myHand:g?.hands?.[pid]||[],legal:r.phase==='playing'&&g?.turnId===pid?legalMoves(g.hands[pid],g.board):[],game:g?{board:g.board,turnId:g.turnId,lastCard:g.lastCard,lastAction:g.lastAction}:null,lastRound:r.lastRound,chat:r.chat.slice(-70),history:r.history.slice(-10),you:player?.name||'Player',voicePeers:r.seats.filter(x=>!x.isBot).map(x=>({id:x.id,name:x.name,peerId:x.peerId||null,voiceOn:!!x.voiceOn,voiceMuted:!!x.voiceMuted,isBot:false}))};}
 function saveSolo(){if(hostRoom?.solo){try{store.setItem('syam7-solo-v3-k44',JSON.stringify(hostRoom));}catch{}}}
@@ -592,6 +638,10 @@ app.addEventListener('click',async event=>{const el=event.target.closest('[data-
  case 'chat-menu':chatMenuOpen=!chatMenuOpen;render();break;
  case 'check-network':if(!pingRoomServer())toast(navigator.onLine===false?'You are offline. Turn on Wi-Fi or mobile data.':'Room connection unavailable. Retry joining.');break;
  case 'retry-room':if(role==='host')createOnline();else if(role==='guest')joinOnline();else{screen='home';render();}break;
+ case 'share-game':shareGamePromotion();break;
+ case 'share-whatsapp':shareOnWhatsApp();break;
+ case 'host-demo':voiceHostWelcome();render();break;
+ case 'host-toggle':voiceHostEnabled=!voiceHostEnabled;store.setItem('syam7-voice-host',voiceHostEnabled?'on':'off');if(!voiceHostEnabled)window.speechSynthesis?.cancel?.();lastHostCue='';render();toast(voiceHostEnabled?'Free voice host enabled':'Free voice host off');break;
  case 'quick-start':{const code=String($('#joinCode')?.value||'').trim();nextRoomPublic=!!$('#publicRoom')?.checked;if(code)joinOnline();else createOnline();break;}
  case 'public-tables':showPublicRooms();break;
  case 'refresh-public':refreshPublicRooms();break;

@@ -25,6 +25,12 @@ let voiceStream = null;
 let voiceMuted = false;
 let voiceStarting = false;
 let voiceMenuOpen = false;
+let themeMenuOpen = false;
+let chatMenuOpen = false;
+let tableTheme = ['ocean','classic','galaxy','neon'].includes(store.getItem('syam7-theme')) ? store.getItem('syam7-theme') : 'ocean';
+let animationsEnabled = store.getItem('syam7-motion') !== 'off';
+const themeLabels = {ocean:'Ocean',classic:'Classic green',galaxy:'Galaxy',neon:'Neon night'};
+
 // Microphone packets are relayed by the dedicated room WebSocket; no PeerJS calls.
 
 let toastTimeout = null, botTimeout = null, joinTimeout = null;
@@ -50,11 +56,40 @@ function turnPlayer(room) {return room.seats[room.game.turnIndex];}
 function logSystem(message) {if(!hostRoom)return;hostRoom.chat.push({system:true,text:message});hostRoom.chat=hostRoom.chat.slice(-80);}
 function sound(type='play') {if(!audioEnabled)return;try{const context=new (window.AudioContext||window.webkitAudioContext)();const o=context.createOscillator();const g=context.createGain();o.connect(g);g.connect(context.destination);o.type='sine';o.frequency.setValueAtTime(type==='win'?640:420,context.currentTime);o.frequency.exponentialRampToValueAtTime(type==='win'?990:260,context.currentTime+.13);g.gain.setValueAtTime(.08,context.currentTime);g.gain.exponentialRampToValueAtTime(.001,context.currentTime+.16);o.start();o.stop(context.currentTime+.17);setTimeout(()=>context.close(),380);}catch{}}
 function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('visible');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>el.classList.remove('visible'),3000);}
-function header() {return `<header class="topbar"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">CREATED BY SYAM <span class="version-mark">V1.6</span></div></div></div><div class="top-actions"><button class="pill" data-action="rules">ⓘ &nbsp;How to play</button><button class="pill" data-action="sound">${audioEnabled?'♫ Sound on':'♪ Sound off'}</button><div class="voice-anchor"><button class="pill voice-trigger ${voiceStream?'voice-live':''}" data-action="voice-menu" aria-controls="voicePopover" aria-expanded="${voiceMenuOpen}" aria-label="Voice chat and announcer settings">${voiceStream?(voiceMuted?'🔇 Voice muted':'🎙️ Voice on'):'🎙️ Voice'}</button>${voiceMenuOpen?voicePanel(screen==='room'?currentView:null):''}</div>${screen!=='home'?'<button class="pill" data-action="home">⌂ &nbsp;Home</button>':''}</div></header>`;}
+function themePanel(){
+ return '<section class="theme-popover" aria-label="Table appearance"><div class="theme-heading"><span>Customize your table</span><button class="smallbtn" data-action="theme-menu" aria-label="Close themes">✕</button></div><div class="theme-options">'+
+ Object.entries(themeLabels).map(([id,label])=>'<button class="theme-choice '+(tableTheme===id?'selected':'')+'" data-action="theme-select" data-theme="'+id+'"><span class="theme-dot theme-dot-'+id+'"></span><span>'+label+'</span>'+(tableTheme===id?' <span aria-hidden="true">✓</span>':'')+'</button>').join('')+
+ '</div><label class="motion-toggle" for="animationCheck"><span>✨ Card animations</span><input type="checkbox" id="animationCheck" '+(animationsEnabled?'checked':'')+'></label></section>';
+}
+function header(){
+ const inMatch=screen==='room'&&currentView?.phase==='playing';
+ const inRoom=screen==='room'&&!!currentView;
+ return '<header class="topbar '+(inMatch?'topbar-match':'')+'"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">MADE BY SYAM <span class="version-mark">V1.7</span></div></div></div>'+
+ '<div class="top-actions">'+
+ (inRoom?'<button class="pill room-pill" data-action="copy" title="Copy the room invite">🔗 '+html(currentView.code)+' ⧉</button>':'')+
+ '<div class="theme-anchor"><button class="pill theme-trigger" data-action="theme-menu" aria-expanded="'+themeMenuOpen+'" title="Change table theme" aria-label="Table themes">🎨 <span class="desktop-label">Themes</span></button>'+(themeMenuOpen?themePanel():'')+'</div>'+
+ '<button class="pill sound-trigger" data-action="sound" title="Toggle sounds">'+(audioEnabled?'🔊':'🔇')+' <span class="desktop-label">Sound</span></button>'+
+ '<div class="voice-anchor"><button class="pill voice-trigger '+(voiceStream?'voice-live':'')+'" data-action="voice-menu" aria-controls="voicePopover" aria-expanded="'+voiceMenuOpen+'" aria-label="Friends voice chat">🎙️ <span class="desktop-label">'+(voiceStream?(voiceMuted?'Muted':'Voice on'):'Voice')+'</span></button>'+(voiceMenuOpen?voicePanel(inRoom?currentView:null):'')+'</div>'+
+ (inMatch?'<button class="pill chat-trigger '+(chatMenuOpen?'chat-active':'')+'" data-action="chat-menu" title="Friends chat" aria-label="Open friends chat">💬</button>':'')+
+ (screen!=='home'?'<button class="pill home-trigger" data-action="home" title="Go home">⌂ <span class="desktop-label">Home</span></button>':'')+
+ '</div></header>';
+}
+
 function footer(){return '<footer class="footer">7Cards Games • Made with ♥ by Syam • Play fair, play together • No real-money betting</footer>';}
-function homeView() {const saved=getSavedSolo();return `
-<section class="hero surface"><div><div class="eyebrow">✦ The classic game of Sevens</div><h1>One card.<br><em>Endless fun.</em></h1><p class="lead">Start with the <b>7 of Hearts</b>. Build every suit up and down. Outsmart your friends or battle clever bots. Lowest score wins!</p><div class="hero-actions"><button class="btn primary" data-action="solo">🤖 &nbsp;Play with bots</button><button class="btn secondary" data-action="host">♣ &nbsp;Play with friends</button><button class="btn tertiary" data-action="join-screen">↗ &nbsp;Join room</button>${saved?'<button class="btn tertiary" data-action="resume">↺ Resume solo game</button>':''}</div></div><div class="hero-art" aria-hidden="true"><div class="floatcard second"><span>7♠</span><b>♠</b><span>7</span></div><div class="floatcard third"><span>8♦</span><b>♦</b><span>8</span></div><div class="floatcard first"><span>7♥</span><b>♥</b><span>7</span></div></div></section>
-<div class="subgrid"><div class="feature surface"><strong>🃏 Simple rules, real strategy</strong><p>52 cards, four suits, one winner. Everyone gets a turn.</p></div><div class="feature surface"><strong>🔗 Your private table</strong><p>Create a room and send your friends an invite link.</p></div><div class="feature surface"><strong>🏆 Unlimited rounds</strong><p>Play as many rounds as you want. End the match when ready.</p></div></div>`;}
+function homeView(){
+ const saved=getSavedSolo();
+ return '<section class="welcome-page"><div class="welcome-badge"><span class="live-dot"></span> LIVE FRIENDS CARD TABLE</div>'+
+ '<div class="welcome-art" aria-hidden="true"><div class="welcome-card wc-spade"><span>7♠</span><strong>♠</strong><small>7</small></div><div class="welcome-card wc-club"><span>7♣</span><strong>♣</strong><small>7</small></div><div class="welcome-card wc-diamond"><span>7♦</span><strong>♦</strong><small>7</small></div><div class="welcome-card wc-heart"><span>7♥</span><strong>♥</strong><small>7</small></div></div>'+
+ '<div class="welcome-kicker">SEVENS • THE CLASSIC CARD GAME</div><h1 class="welcome-title">Sevens</h1><p class="welcome-sub">7Cards Games <span>·</span> Created by Syam</p>'+
+ '<section class="welcome-panel"><h2>Take a seat</h2><p>Pick your name, create a private table or join friends with a room code.</p>'+
+ '<div class="field"><label for="yourName">Your name</label><input id="yourName" maxlength="22" autocomplete="nickname" value="'+html(playerName)+'" placeholder="Your name"></div>'+
+ '<div class="field"><label for="joinCode">Room code <span class="muted">· optional</span></label><input id="joinCode" maxlength="8" autocomplete="off" style="text-transform:uppercase" placeholder="Leave blank for a new table"></div>'+
+ '<button class="btn primary welcome-start" data-action="quick-start">Open Table <span>→</span></button>'+
+ '<div class="welcome-alt"><button class="btn secondary" data-action="solo">🤖 Practice vs Bots</button><button class="btn tertiary" data-action="rules" aria-label="How to play">ⓘ</button></div>'+
+ (saved?'<button class="welcome-resume" data-action="resume">↺ Resume your previous bot game</button>':'')+
+ '</section><p class="welcome-footnote">52 cards · Unlimited rounds · Private invites · Voice with friends</p></section>';
+}
+
 function friendsView() {return `<section class="setup surface"><div class="section-header"><h2>Create a friends room ♣</h2><button class="smallbtn" data-action="home">← Back</button></div><p class="setup-intro">Open your own private card table, invite friends using a shareable link, and optionally add bots before you begin. Play unlimited rounds and end the match whenever your group is ready.</p><div class="field"><label for="yourName">Your player name</label><input id="yourName" maxlength="22" value="${html(playerName)}" placeholder="Your name"></div><div class="setup-buttons"><button class="btn primary" data-action="create-online">🔗 Create private room →</button><button class="btn secondary" data-action="join-screen">Join someone else’s room</button></div><p class="hint">The host browser stays open during the match. Use a hosted HTTPS link for online multiplayer.</p></section>`;}
 function joinView() {return `<section class="setup surface"><div class="section-header"><h2>Join the table ♠</h2><button class="smallbtn" data-action="home">← Back</button></div><p class="setup-intro">Join your friends using their invite link or 6-character room code. Everyone plays in their own browser.</p>${gameCode?`<div class="join-banner">🔗 <div><strong>You've been invited!</strong><div class="muted">Room: ${html(gameCode)}</div></div></div>`:''}<div class="field"><label for="yourName">Your player name</label><input id="yourName" maxlength="22" value="${html(playerName)}" placeholder="Your name"></div><div class="field"><label for="joinCode">Room code</label><input id="joinCode" maxlength="8" style="letter-spacing:3px;text-transform:uppercase" value="${html(gameCode)}" placeholder="ABC123"></div><div class="setup-buttons"><button class="btn primary" data-action="join">Join room →</button><button class="btn tertiary" data-action="solo">Play bots instead</button></div>${lastError?`<p class="hint" style="color:#ffd4ab;font-weight:800">⚠️ ${html(lastError)}</p>`:''}<p class="hint">The room host needs to stay online while everyone plays. Online mode requires an internet connection.</p></section>`;}
 function loadingView(){return `<section class="setup surface loading"><div class="spinner"></div><h2>${html(loadingMessage||'Connecting...')}</h2><p class="muted">${html(lastError||'Connecting players securely through the online room service.')}</p><button class="btn tertiary" data-action="home">Cancel</button></section>`;}
@@ -64,27 +99,27 @@ function lobbyView(){const v=currentView;return `<section class="setup surface" 
 <div class="setup-row" style="margin-top:18px"><div class="field"><label>Rounds</label><div class="tag accent" style="padding:15px">♾ Unlimited — host ends the match</div></div><div class="field"><label>Scoring</label><div class="tag" style="padding:15px">A = 1 · J = 11 · Q = 12 · K = 13</div></div></div>
 <div class="setup-buttons">${v.isHost?`<button class="btn primary" data-action="start" ${v.players.length<2?'disabled':''}>▶ Start game</button>`:'<div class="tag accent" style="padding:15px">Waiting for the host to start…</div>'}<button class="btn tertiary" data-action="rules">📖 Rules</button></div><p class="smallnote">A match needs 2–8 players. With an odd player count, some players may receive one extra card. Bot turns are automatic.</p></section>`;}
 function boardView(board,lastCard){
-  return `<div class="board">
-    <div class="board-label">TABLE • EACH PLAYED CARD SHOWS ITS SUIT</div>
-    <div class="board-scroll" role="region" aria-label="Cards placed on the table" tabindex="0">
-      ${SUITS.map(s=>`<div class="suit-row">
-        <div class="suit-name suit-${s}" title="${SUIT_NAMES[s]}" aria-label="${SUIT_NAMES[s]}">
-          <span class="suit-glyph">${SUIT_ICONS[s]}</span><span class="suit-label">${SUIT_NAMES[s]}</span>
-        </div>
-        <div class="suit-track">${Array.from({length:13},(_,i)=>{
-          const rank=i+1,lane=board[s],played=!!(lane&&rank>=lane.lo&&rank<=lane.hi);
-          const isLatest=lastCard?.suit===s&&lastCard?.rank===rank;
-          const label=`${valueName(rank)} of ${SUIT_NAMES[s]}`;
-          return played
-            ? `<span class="boardcard placed suit-${s} ${rank===7?'seven':''} ${isLatest?'highlight':''}" title="${label}" aria-label="${label} played" data-placed-card="${s}${rank}"><span class="board-rank">${valueName(rank)}</span><span class="board-center-suit" aria-hidden="true">${SUIT_ICONS[s]}</span></span>`
-            : `<span class="boardcard empty" title="${label} — not played yet" aria-label="${label} not played yet"><span class="slot-rank">${valueName(rank)}</span></span>`;
-        }).join('')}</div>
-      </div>`).join('')}
-    </div>
-    <div class="board-legend">Suit order: A → 2 → 3 → 4 → 5 → 6 → <strong>7</strong> → 8 → 9 → 10 → J → Q → K</div>
-  </div>`;
+ const rows=SUITS.map(s=>{
+  const lane=board[s];
+  const ranks=lane ? Array.from({length:lane.hi-lane.lo+1},(_,i)=>lane.lo+i) : [];
+  const content=[];
+  if(!lane){
+   content.push('<span class="table-slot empty-seven" title="Play the seven of '+SUIT_NAMES[s]+' to open this suit"><span>'+SUIT_ICONS[s]+'</span><b>7</b></span>');
+  }else{
+   if(lane.lo>1)content.push('<span class="table-slot next-slot" title="Next: '+valueName(lane.lo-1)+' '+SUIT_ICONS[s]+'">'+valueName(lane.lo-1)+'</span>');
+   for(const rank of ranks){
+    const isLatest=lastCard?.suit===s&&lastCard?.rank===rank;
+    const label=valueName(rank)+' of '+SUIT_NAMES[s];
+    content.push('<span class="table-played suit-'+s+' '+(rank===7?'seven ':'')+(isLatest?'highlight':'')+'" title="'+label+'" aria-label="'+label+' played" data-placed-card="'+s+rank+'"><span class="table-rank">'+valueName(rank)+'</span><span class="table-icon">'+SUIT_ICONS[s]+'</span><span class="table-invert">'+valueName(rank)+'</span></span>');
+   }
+   if(lane.hi<13)content.push('<span class="table-slot next-slot" title="Next: '+valueName(lane.hi+1)+' '+SUIT_ICONS[s]+'">'+valueName(lane.hi+1)+'</span>');
+  }
+  return '<div class="felt-row"><div class="felt-suit suit-'+s+'" title="'+SUIT_NAMES[s]+'">'+SUIT_ICONS[s]+'</div><div class="felt-track" role="group" aria-label="'+SUIT_NAMES[s]+' cards">'+content.join('')+'</div></div>';
+ }).join('');
+ return '<div class="board felt-board"><div class="felt-heading">THE SEVENS TABLE <span>♦ ♣ ♥ ♠</span></div><div class="board-scroll" role="region" aria-label="Cards on the table" tabindex="0">'+rows+'</div><p class="felt-caption">Build each suit from 7 down to Ace and up to King</p></div>';
 }
-function cardElement(card,legal){const c=packCard(card);return `<button class="playingcard suit-${card.suit} ${card.suit==='H'||card.suit==='D'?'red':''} ${legal?'legal':'locked'}" data-action="play" data-card="${c}" ${legal?'':'disabled'} title="${valueName(card.rank)} of ${SUIT_NAMES[card.suit]}${legal?' – Tap to play':''}"><span><span class="toprank">${valueName(card.rank)}</span><br><span class="topsuit">${SUIT_ICONS[card.suit]}</span></span><span class="center-suit">${SUIT_ICONS[card.suit]}</span></button>`;}
+
+function cardElement(card,legal){const c=packCard(card);return `<button class="playingcard suit-${card.suit} ${card.suit==='H'||card.suit==='D'?'red':''} ${legal?'legal':'locked'}" data-action="play" data-card="${c}" data-rank="${valueName(card.rank)}" data-suit="${SUIT_ICONS[card.suit]}" ${legal?'':'disabled'} title="${valueName(card.rank)} of ${SUIT_NAMES[card.suit]}${legal?' – Tap to play':''}"><span><span class="toprank">${valueName(card.rank)}</span><br><span class="topsuit">${SUIT_ICONS[card.suit]}</span></span><span class="center-suit">${SUIT_ICONS[card.suit]}</span></button>`;}
 function scoreView(v){return `<section class="panel surface"><h3 class="side-title">🏆 Leaderboard</h3><table class="scoretable"><thead><tr><th>Player</th><th>Penalty</th></tr></thead><tbody>${[...v.players].sort((a,b)=>a.score-b.score).map((p,i)=>`<tr><td>${i===0?'🥇 ':''}${html(p.name)}${p.id===myId?' · You':''}</td><td class="${i===0?'score-gold':''}">${p.score}</td></tr>`).join('')}</tbody></table><p class="smallnote">Lowest total penalty is best. Scores add after each round.</p></section>`;}
 function voicePanel(v){
   const online=screen==='room'&&!isSolo&&!!v;
@@ -97,9 +132,24 @@ function voicePanel(v){
   </section>`;
 }
 function chatView(v){return `<section class="panel surface"><h3 class="side-title">💬 Table talk</h3><div class="chatlog" id="chatlog">${(v.chat||[]).map(x=>`<div class="chat-line ${x.system?'system':''}">${x.system?html(x.text):`<b>${html(x.name)}:</b> ${html(x.text)}`}</div>`).join('')}</div><div class="chatbox"><input id="chatInput" type="text" placeholder="Say something nice…" maxlength="140" autocomplete="off"><button data-action="chat" title="Send message">➤</button></div><div class="reactions">${['👏','🔥','😎','❤️'].map(e=>`<button data-action="reaction" data-emoji="${e}" title="Send reaction">${e}</button>`).join('')}</div></section>`;}
-function boardGameView(){const v=currentView,g=v.game,turn=g.turnId===myId,legal=new Set(v.legal.map(packCard));const who=v.players.find(p=>p.id===g.turnId);return `<div class="game-head"><h2>Round ${v.roundIndex}</h2><div class="meta"><span class="tag accent">${turn?'● YOUR TURN':`${html(who?.name||'Player')}’s turn`}</span>${!isSolo?`<span class="tag">Room ${html(v.code)}</span>`:''}${v.isHost?'<button class="smallbtn finish-match" data-action="end-match" title="End the match and show the lowest-score winner">🏁 End match</button>':''}</div></div><div class="game-layout"><div class="game-main"><section class="panel surface"><div class="players">${v.players.map(playerChip).join('')}</div>${boardView(g.board,g.lastCard)}<div class="hand-area"><div class="hand-head"><h3>🃏 Your hand <span class="muted">(${v.myHand.length})</span></h3><span class="status">${turn?(v.legal.length?'Tap a green-outlined card':'No legal card – pass your turn'):'Wait for your turn'}</span></div><div class="hand">${sortedHand(v.myHand).map(c=>cardElement(c,turn&&legal.has(packCard(c)))).join('')||'<div class="muted">Your hand is empty 🎉</div>'}</div><div class="actions-row"><div class="turn-info">${g.lastAction?html(g.lastAction):'The 7♥ opens the game.'}</div><button class="btn ${turn&&!v.legal.length?'primary':'tertiary'}" data-action="pass" ${turn&&!v.legal.length?'':'disabled'}>Pass turn →</button></div></div></section></div><aside class="sidebar">${scoreView(v)}${chatView(v)}${!isSolo?`<section class="panel surface"><h3 class="side-title">🔗 Friends room</h3><p class="smallnote">Share this link with friends to join. The host keeps the game running.</p><button class="btn tertiary" style="width:100%" data-action="copy">⧉ Copy invite link</button></section>`:''}</aside></div>`;}
+function boardGameView(){
+ const v=currentView,g=v.game,turn=g.turnId===myId,legal=new Set(v.legal.map(packCard));
+ const who=v.players.find(p=>p.id===g.turnId);
+ return '<div class="game-head modern-game-head"><h2>Round '+v.roundIndex+'</h2><div class="meta"><span class="tag accent">'+(turn?'● YOUR TURN':html(who?.name||'Player')+'’s turn')+'</span>'+
+ (v.isHost?'<button class="smallbtn finish-match" data-action="end-match">🏁 End match</button>':'')+'</div></div>'+
+ '<div class="game-layout modern-game-layout"><div class="game-main"><section class="panel surface modern-game-surface"><div class="players">'+v.players.map(playerChip).join('')+'</div>'+
+ boardView(g.board,g.lastCard)+
+ '<div class="hand-area"><div class="hand-head"><h3>YOUR HAND <span class="muted">('+v.myHand.length+')</span></h3><span class="status">'+(turn?(v.legal.length?'Tap the glowing card':'No playable card · pass'):('Waiting for '+html(who?.name||'player')))+'</span></div>'+
+ '<div class="hand" aria-label="Your playing cards">'+(sortedHand(v.myHand).map(c=>cardElement(c,turn&&legal.has(packCard(c)))).join('')||'<div class="muted">Your hand is empty 🎉</div>')+'</div>'+
+ '<div class="actions-row"><div class="turn-info">'+(g.lastAction?html(g.lastAction):'The 7♥ opens the game.')+'</div><button class="btn '+(turn&&!v.legal.length?'primary':'tertiary')+'" data-action="pass" '+(turn&&!v.legal.length?'':'disabled')+'>Pass turn →</button></div></div>'+
+ '</section></div><aside class="sidebar">'+scoreView(v)+
+ '<div class="chat-layer '+(chatMenuOpen?'chat-open':'')+'">'+chatView(v)+'<button class="chat-dismiss" data-action="chat-menu">Close chat ✕</button></div>'+
+ (!isSolo?'<section class="panel surface invite-card"><h3 class="side-title">🔗 Friends room</h3><p class="smallnote">Keep this tab open while your friends play.</p><button class="btn tertiary" data-action="copy">Copy invite link ⧉</button></section>':'')+
+ '</aside></div>';
+}
+
 function resultsView(){const v=currentView,final=v.phase==='finished';const r=v.lastRound||{points:{},winnerName:'',empty:''};const winnerScore=Math.min(...v.players.map(p=>p.score));const champs=v.players.filter(p=>p.score===winnerScore);const played=v.completedRounds||0;return `<section class="surface result"><div class="trophy">${final?'🏆':'🎉'}</div><div class="eyebrow">${final?'MATCH COMPLETE':'ROUND '+v.roundIndex+' COMPLETE'}</div><h2>${final?champs.map(x=>html(x.name)).join(' & ')+' wins!':html(r.winnerName)+' cleared their hand!'}</h2><p class="muted">${final?`After ${played} completed round${played===1?'':'s'}, the lowest total is <b style="color:var(--gold)">${winnerScore} points</b>.${played<v.roundIndex?' The unfinished round was not counted.':''}`: 'Cards left in hand are counted as penalty points. Lower is better! Play another round or end the match anytime.'}</p><div class="result-table">${[...v.players].sort((a,b)=>a.score-b.score).map((p,i)=>`<div class="result-row"><span>${i===0?'🥇 ':''}${html(p.name)} ${p.id===myId?'(You)':''}</span><span>${!final?`+${r.points[p.id]??0} · `:''}<b>${p.score} total</b></span></div>`).join('')}</div><div class="result-buttons">${v.isHost?final?'<button class="btn primary" data-action="rematch">↻ Start a new match</button>':`<button class="btn primary" data-action="next">▶ Play round ${v.roundIndex+1}</button><button class="btn secondary" data-action="end-match">🏁 End match & see winner</button>`:'<span class="tag accent" style="padding:15px">Waiting for the host…</span>'}<button class="btn tertiary" data-action="copy" ${isSolo?'disabled':''}>🔗 Copy invite</button><button class="btn tertiary" data-action="home">⌂ Home</button></div></section><div style="max-width:700px;margin:14px auto">${chatView(v)}</div>`;}
-function render(){if(screen==='home')app.innerHTML=header()+homeView()+footer();else if(screen==='join')app.innerHTML=header()+joinView()+footer();else if(screen==='friends')app.innerHTML=header()+friendsView()+footer();else if(screen==='loading')app.innerHTML=header()+loadingView()+footer();else if(screen==='room'&&currentView){let body=currentView.phase==='lobby'?lobbyView():currentView.phase==='playing'?boardGameView():resultsView();app.innerHTML=header()+body+footer();const log=$('#chatlog');if(log)log.scrollTop=log.scrollHeight;syncVoice();announceMove();}else {screen='home';app.innerHTML=header()+homeView()+footer();}}
+function render(){if(document.documentElement?.setAttribute){document.documentElement.setAttribute('data-theme',tableTheme);document.documentElement.classList?.toggle('no-motion',!animationsEnabled);}if(screen==='home')app.innerHTML=header()+homeView()+footer();else if(screen==='join')app.innerHTML=header()+joinView()+footer();else if(screen==='friends')app.innerHTML=header()+friendsView()+footer();else if(screen==='loading')app.innerHTML=header()+loadingView()+footer();else if(screen==='room'&&currentView){let body=currentView.phase==='lobby'?lobbyView():currentView.phase==='playing'?boardGameView():resultsView();app.innerHTML=header()+body+footer();const log=$('#chatlog');if(log)log.scrollTop=log.scrollHeight;syncVoice();announceMove();}else {screen='home';app.innerHTML=header()+homeView()+footer();}}
 function makeRoom(code, solo, name) {const id='host-'+uid();return {code,solo,phase:'lobby',roundIndex:0,seats:[{id,name,isBot:false,score:0,connected:true,isHost:true}],chat:[],game:null,lastRound:null,history:[],owner:id};}
 function getView(pid){const r=hostRoom;const g=r.game,player=r.seats.find(p=>p.id===pid);return {code:r.code,phase:r.phase,isHost:pid===r.owner,roundIndex:r.roundIndex,players:r.seats.map(p=>({id:p.id,name:p.name,score:p.score,isBot:p.isBot,isHost:!!p.isHost,online:p.connected,cardCount:g?.hands?.[p.id]?.length||0})),myHand:g?.hands?.[pid]||[],legal:r.phase==='playing'&&g?.turnId===pid?legalMoves(g.hands[pid],g.board):[],game:g?{board:g.board,turnId:g.turnId,lastCard:g.lastCard,lastAction:g.lastAction}:null,lastRound:r.lastRound,chat:r.chat.slice(-70),history:r.history.slice(-10),you:player?.name||'Player',voicePeers:r.seats.filter(x=>!x.isBot).map(x=>({id:x.id,name:x.name,peerId:x.peerId||null,voiceOn:!!x.voiceOn,voiceMuted:!!x.voiceMuted,isBot:false}))};}
 function saveSolo(){if(hostRoom?.solo){try{store.setItem('syam7-solo-v1',JSON.stringify(hostRoom));}catch{}}}
@@ -458,8 +508,12 @@ function safeHome(){voiceMenuOpen=false;stopNetwork();setRoute(location.pathname
 app.addEventListener('click',async event=>{const el=event.target.closest('[data-action]');if(!el)return;const a=el.dataset.action;
  switch(a){
  case 'rules': $('#rulesDialog').showModal();break;
+ case 'theme-menu':themeMenuOpen=!themeMenuOpen;voiceMenuOpen=false;render();break;
+ case 'theme-select':if(themeLabels[el.dataset.theme]){tableTheme=el.dataset.theme;store.setItem('syam7-theme',tableTheme);themeMenuOpen=false;render();}break;
+ case 'chat-menu':chatMenuOpen=!chatMenuOpen;render();break;
+ case 'quick-start':{const code=String($('#joinCode')?.value||'').trim();if(code)joinOnline();else createOnline();break;}
  case 'sound':audioEnabled=!audioEnabled;store.setItem('syam7-sound',audioEnabled?'on':'off');render();toast(audioEnabled?'Sound enabled':'Sound muted');break;
- case 'voice-menu':voiceMenuOpen=!voiceMenuOpen;render();break;
+ case 'voice-menu':voiceMenuOpen=!voiceMenuOpen;themeMenuOpen=false;render();break;
  case 'home':safeHome();break;
  case 'solo':setupLocal();break;
  case 'resume':{const saved=getSavedSolo();if(saved){stopNetwork();hostRoom=saved;role='host';isSolo=true;myId=saved.owner;broadcast();}break;}
@@ -484,7 +538,7 @@ app.addEventListener('click',async event=>{const el=event.target.closest('[data-
 function sendMessage(text){if(role==='host')handleAction(myId,{type:'chat',text});else if(guestConn?.open)guestConn.send({type:'chat',text});}
 function sendChat(){const input=$('#chatInput');if(!input)return;const txt=input.value.trim();if(txt){sendMessage(txt);input.value='';}}
 app.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='chatInput'){e.preventDefault();sendChat();}if(e.key==='Enter'&&e.target.id==='joinCode')joinOnline();});
-app.addEventListener('change',e=>{if(e.target.id==='announcerCheck'){announcerEnabled=!!e.target.checked;store.setItem('syam7-announcer',announcerEnabled?'on':'off');lastAnnouncedAction='';if(!announcerEnabled&&'speechSynthesis' in window)try{speechSynthesis.cancel();}catch{}return;}});
+app.addEventListener('change',e=>{if(e.target.id==='animationCheck'){animationsEnabled=!!e.target.checked;store.setItem('syam7-motion',animationsEnabled?'on':'off');render();return;}if(e.target.id==='announcerCheck'){announcerEnabled=!!e.target.checked;store.setItem('syam7-announcer',announcerEnabled?'on':'off');lastAnnouncedAction='';if(!announcerEnabled&&'speechSynthesis' in window)try{speechSynthesis.cancel();}catch{}return;}});
 $('#rulesClose').addEventListener('click',()=>$('#rulesDialog').close());
 $('#rulesDialog').addEventListener('click',e=>{if(e.target.id==='rulesDialog')$('#rulesDialog').close();});
 window.Syam7Test={allCards,legalMoves,makeRoom,shuffle,packCard,boardView,getView,hostControl,getHostRoom:()=>hostRoom,voicePanel,header,encodeVoiceSample,decodeVoiceSample,handleVoiceAudio};

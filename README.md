@@ -1,16 +1,26 @@
-# 7Cards Games — By Syam v1.6
+# 7Cards Games — By Syam v1.7
 
-## Friends voice fix
-Version 1.6 replaces PeerJS browser-to-browser audio with low-latency 16 kHz 8-bit mu-law microphone packets through the private room WebSocket relay. This does not require WebRTC NAT traversal or TURN servers. Audio is sent only while the microphone is enabled and is not recorded by the game.
+Private friends' Sevens and bot play on the existing Render website.
 
-**How to test on two phones:**
-1. Both players open the new game version and join the same freshly created room.
-2. Each taps **Voice → Join voice**, and allows microphone access.
-3. Each taps **Test speaker** and checks the phone **media volume**.
-4. Speak; the receiving phone should show **Receiving voice audio** in the Voice panel.
-5. Tap Mute to stop sending, or Leave voice to stop capturing and receiving.
+### New in v1.7 — Sevens lounge
 
-Use headphones to prevent feedback. Do not close or background the host's room tab. The room relay runs on Render's free web-service plan, so after being idle it may need to wake up. Real-world device and carrier behavior still need to be confirmed.
+- New mobile-first **Take a seat** start screen with name, optional room code, and **Open Table** action.
+- Four selectable felt themes: **Ocean**, **Classic green**, **Galaxy**, and **Neon night**. Saved locally per device.
+- Animated fanned playing cards; animations can be disabled in the Themes panel.
+- Compact table showing played card faces with rank and suit plus frontier slots, instead of 52 tiny placeholders.
+- Folded card hand for phone-sized screens; legal cards glow to show what can be played.
+- Friends room invite control in the toolbar and a compact chat overlay on phones.
+- Existing 52-card Sevens gameplay, bots, invite links, leaderboard, voice, unlimited rounds and end-match scoring preserved.
 
-Game: https://sevencards-games-by-syam.onrender.com
-Room relay: https://sevencards-room-relay-syam.onrender.com/health
+### Testing
+
+`npm install`, `npm test` (two-player room + voice relay), `node --check app.js`, `node scripts/check-release.mjs`.
+
+### Deployment
+
+GitHub `main` is linked to the existing Render static site. The game's URL remains:
+https://sevencards-games-by-syam.onrender.com
+
+Room server: https://sevencards-room-relay-syam.onrender.com/health
+
+Friends and mic audio need final two-real-device checks. The host must keep the game tab open. No payment or betting.

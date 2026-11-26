@@ -1,4 +1,4 @@
 7Cards Games — By Syam
-Version: 1.7.2
-Release: Room network health status (ping/pong), server warmup on home, connection retry, offline warnings, mobile lobby + in-game chat and retained unsent chat drafts. Keeps the 44-card 3–King rules, themes, friends, bots, voice and unlimited rounds.
+Version: 1.8.0
+Release: Free opt-in browser voice host (welcome, rules, turns and round winners), optional public room listings, native and WhatsApp game sharing. Existing private friend rooms remain unlisted. 44 cards, four themes, friends voice, bots and unlimited rounds preserved.
 Website: https://sevencards-games-by-syam.onrender.com

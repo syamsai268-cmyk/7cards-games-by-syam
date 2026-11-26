@@ -96,6 +96,21 @@ function turnPlayer(room) {return room.seats[room.game.turnIndex];}
 function logSystem(message) {if(!hostRoom)return;hostRoom.chat.push({system:true,text:message});hostRoom.chat=hostRoom.chat.slice(-80);}
 function sound(type='play') {if(!audioEnabled)return;try{const context=new (window.AudioContext||window.webkitAudioContext)();const o=context.createOscillator();const g=context.createGain();o.connect(g);g.connect(context.destination);o.type='sine';o.frequency.setValueAtTime(type==='win'?640:420,context.currentTime);o.frequency.exponentialRampToValueAtTime(type==='win'?990:260,context.currentTime+.13);g.gain.setValueAtTime(.08,context.currentTime);g.gain.exponentialRampToValueAtTime(.001,context.currentTime+.16);o.start();o.stop(context.currentTime+.17);setTimeout(()=>context.close(),380);}catch{}}
 function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('visible');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>el.classList.remove('visible'),3000);}
+
+function micDock(){
+ if(screen!=='room'||isSolo||!currentView)return '';
+ const peers=(currentView.voicePeers||[]).filter(p=>!p.isBot&&p.voiceOn);
+ const label=!voiceStream?'Join mic':voiceMuted?'Unmute':'Mute mic';
+ const state=!voiceStream?'off':voiceMuted?'muted':'live';
+ const icon=!voiceStream?'🎙️':voiceMuted?'🔇':'🎤';
+ const listenerCount=peers.filter(p=>p.id!==myId).length;
+ return '<div class="team-voice-dock" aria-label="In-game team microphone">'+
+ '<div class="team-voice-info"><strong id="voiceActivity" aria-live="polite">'+(voiceStream?(voiceMuted?'Mic muted':'Mic live'):'Team voice')+'</strong><small>'+listenerCount+' friend'+(listenerCount===1?'':'s')+' in voice · '+(voiceStream?'audio connected':'tap mic to join')+'</small></div>'+
+ '<button type="button" class="pubg-mic-button state-'+state+'" data-action="mic-toggle" title="'+label+'" aria-label="'+label+'" aria-pressed="'+(voiceStream&&!voiceMuted)+'"><span class="pubg-mic-icon">'+icon+'</span><span class="pubg-mic-label">'+label+'</span></button>'+
+ (voiceStream?'<button class="mic-leave" type="button" data-action="mic-leave" title="Leave voice, close microphone">✕</button>':'')+
+ '</div>';
+}
+
 function themePanel(){
  return '<section class="theme-popover" aria-label="Table appearance"><div class="theme-heading"><span>Customize your table</span><button class="smallbtn" data-action="theme-menu" aria-label="Close themes">✕</button></div><div class="theme-options">'+
  Object.entries(themeLabels).map(([id,label])=>'<button class="theme-choice '+(tableTheme===id?'selected':'')+'" data-action="theme-select" data-theme="'+id+'"><span class="theme-dot theme-dot-'+id+'"></span><span>'+label+'</span>'+(tableTheme===id?' <span aria-hidden="true">✓</span>':'')+'</button>').join('')+
@@ -104,13 +119,12 @@ function themePanel(){
 function header(){
  const inMatch=screen==='room'&&currentView?.phase==='playing';
  const inRoom=screen==='room'&&!!currentView;
- return '<header class="topbar '+(inMatch?'topbar-match':'')+'"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">MADE BY SYAM <span class="version-mark">V1.8</span></div></div></div>'+
+ return '<header class="topbar '+(inMatch?'topbar-match':'')+'"><div class="brand"><div class="brand-icon">7♥</div><div><div class="brand-name">7Cards <span>Games</span></div><div class="byline">MADE BY SYAM <span class="version-mark">V1.9</span></div></div></div>'+
  '<div class="top-actions">'+
  (inRoom?'<button class="pill room-pill" data-action="copy" title="Copy the room invite">🔗 '+html(currentView.code)+' ⧉</button>':'')+
  '<div class="theme-anchor"><button class="pill theme-trigger" data-action="theme-menu" aria-expanded="'+themeMenuOpen+'" title="Change table theme" aria-label="Table themes">🎨 <span class="desktop-label">Themes</span></button>'+(themeMenuOpen?themePanel():'')+'</div>'+
  '<button class="pill sound-trigger" data-action="sound" title="Toggle sounds">'+(audioEnabled?'🔊':'🔇')+' <span class="desktop-label">Sound</span></button>'+
- '<div class="voice-anchor"><button class="pill voice-trigger '+(voiceStream?'voice-live':'')+'" data-action="voice-menu" aria-controls="voicePopover" aria-expanded="'+voiceMenuOpen+'" aria-label="Friends voice chat">🎙️ <span class="desktop-label">'+(voiceStream?(voiceMuted?'Muted':'Voice on'):'Voice')+'</span></button>'+(voiceMenuOpen?voicePanel(inRoom?currentView:null):'')+'</div>'+
- (inRoom?'<button class="pill chat-trigger '+(chatMenuOpen?'chat-active':'')+'" data-action="chat-menu" title="Friends chat" aria-label="Open friends chat">💬</button>':'')+
+  (inRoom?'<button class="pill chat-trigger '+(chatMenuOpen?'chat-active':'')+'" data-action="chat-menu" title="Friends chat" aria-label="Open friends chat">💬</button>':'')+
  (screen!=='home'?'<button class="pill home-trigger" data-action="home" title="Go home">⌂ <span class="desktop-label">Home</span></button>':'')+
  '</div></header>';
 }
@@ -214,7 +228,7 @@ function playerChip(p,idx) {const active=currentView.game&&currentView.game.turn
 function lobbyView(){const v=currentView;return `<section class="setup surface" style="max-width:900px"><div class="section-header"><h2>${isSolo?'Play with bots 🤖':'Private game lobby ♣'}</h2><span class="tag accent">${v.players.length}/8 players</span></div><p class="setup-intro">${isSolo?'Choose how many bots to face, then start the match.':'Invite friends to your private table. You can also add bots to fill empty seats.'}</p>${!isSolo?`<div class="invite"><div><small>ROOM CODE</small><div class="room-code">${html(v.code)}</div></div><div class="invite-actions"><button class="btn primary" data-action="copy">⧉ Copy link</button><button class="btn tertiary" data-action="share">↗ Share</button></div></div>`:''}
 ${v.isHost&&!isSolo?`<button class="btn tertiary public-switch" data-action="toggle-public">🌍 ${hostRoom?.isPublic?'Public table ✓ · Make private':'Private table 🔒 · Make public'}</button>`:''}<div class="section-header" style="margin-top:24px"><h2 style="font-size:20px">Players at the table</h2>${v.isHost?'<button class="smallbtn" data-action="add-bot">+ Add a bot</button>':''}</div><div class="lobby-players">${v.players.map((p,i)=>`<div class="lobby-person"><div><b>${p.isBot?'🤖':'👤'} ${html(p.name)} ${p.id===myId?'(You)':''}</b><small>${p.isBot?'Computer player':p.isHost?'Room host':p.online?'Ready to play':'Disconnected'}</small></div>${v.isHost&&p.id!==myId?`<button class="icon-button" data-action="remove-player" data-player="${html(p.id)}" title="Remove player">✕</button>`:''}</div>`).join('')}</div>
 <div class="setup-row" style="margin-top:18px"><div class="field"><label>Rounds</label><div class="tag accent" style="padding:15px">♾ Unlimited — host ends the match</div></div><div class="field"><label>Scoring</label><div class="tag" style="padding:15px">3 = 3 · 10 = 10 · J = 11 · Q = 12 · K = 13</div></div></div>
-<div class="setup-buttons">${v.isHost?`<button class="btn primary" data-action="start" ${v.players.length<2?'disabled':''}>▶ Start game</button>`:'<div class="tag accent" style="padding:15px">Waiting for the host to start…</div>'}<button class="btn tertiary" data-action="rules">📖 Rules</button></div><p class="smallnote">A match needs 2–8 players. With an odd player count, some players may receive one extra card. Bot turns are automatic.</p></section><div class="chat-layer lobby-chat ${chatMenuOpen?'chat-open':''}">${chatView(v)}<button class="chat-dismiss" data-action="chat-menu">Close chat ✕</button></div>`;} 
+<div class="setup-buttons">${v.isHost?`<button class="btn primary" data-action="start" ${v.players.length<2?'disabled':''}>▶ Start game</button>`:'<div class="tag accent" style="padding:15px">Waiting for the host to start…</div>'}<button class="btn tertiary" data-action="rules">📖 Rules</button></div><p class="smallnote">Everyone receives exactly '${Math.floor(44/v.players.length)}' cards each. The '${44%v.players.length}' undealt top-rank card(s) stay aside so everyone starts equally. Aces and 2s are never used. Bots play automatically.</p></section><div class="chat-layer lobby-chat ${chatMenuOpen?'chat-open':''}">${chatView(v)}<button class="chat-dismiss" data-action="chat-menu">Close chat ✕</button></div>`;} 
 function boardView(board,lastCard){
  const rows=SUITS.map(s=>{
   const lane=board[s];
@@ -256,7 +270,7 @@ function boardGameView(){
  return '<div class="game-head modern-game-head"><h2>Round '+v.roundIndex+'</h2><div class="meta"><span class="tag accent">'+(turn?'● YOUR TURN':html(who?.name||'Player')+'’s turn')+'</span>'+
  (v.isHost?'<button class="smallbtn finish-match" data-action="end-match">🏁 End match</button>':'')+'</div></div>'+
  '<div class="game-layout modern-game-layout"><div class="game-main"><section class="panel surface modern-game-surface"><div class="players">'+v.players.map(playerChip).join('')+'</div>'+
- boardView(g.board,g.lastCard)+
+ '<div class="deal-equal-note">🃏 '+v.cardsPerPlayer+' cards each · '+v.setAsideCount+' safely set aside · A and 2 removed</div>'+boardView(g.board,g.lastCard)+
  '<div class="hand-area"><div class="hand-head"><h3>YOUR HAND <span class="muted">('+v.myHand.length+')</span></h3><span class="status">'+(turn?(v.legal.length?'Tap the glowing card':'No playable card · pass'):('Waiting for '+html(who?.name||'player')))+'</span></div>'+
  '<div class="hand" aria-label="Your playing cards">'+(sortedHand(v.myHand).map(c=>cardElement(c,turn&&legal.has(packCard(c)))).join('')||'<div class="muted">Your hand is empty 🎉</div>')+'</div>'+
  '<div class="actions-row"><div class="turn-info">'+(g.lastAction?html(g.lastAction):'The 7♥ opens the game.')+'</div><button class="btn '+(turn&&!v.legal.length?'primary':'tertiary')+'" data-action="pass" '+(turn&&!v.legal.length?'':'disabled')+'>Pass turn →</button></div></div>'+
@@ -267,9 +281,9 @@ function boardGameView(){
 }
 
 function resultsView(){const v=currentView,final=v.phase==='finished';const r=v.lastRound||{points:{},winnerName:'',empty:''};const winnerScore=Math.min(...v.players.map(p=>p.score));const champs=v.players.filter(p=>p.score===winnerScore);const played=v.completedRounds||0;return `<section class="surface result"><div class="trophy">${final?'🏆':'🎉'}</div><div class="eyebrow">${final?'MATCH COMPLETE':'ROUND '+v.roundIndex+' COMPLETE'}</div><h2>${final?champs.map(x=>html(x.name)).join(' & ')+' wins!':html(r.winnerName)+' cleared their hand!'}</h2><p class="muted">${final?`After ${played} completed round${played===1?'':'s'}, the lowest total is <b style="color:var(--gold)">${winnerScore} points</b>.${played<v.roundIndex?' The unfinished round was not counted.':''}`: 'Cards left in hand are counted as penalty points. Lower is better! Play another round or end the match anytime.'}</p><div class="result-table">${[...v.players].sort((a,b)=>a.score-b.score).map((p,i)=>`<div class="result-row"><span>${i===0?'🥇 ':''}${html(p.name)} ${p.id===myId?'(You)':''}</span><span>${!final?`+${r.points[p.id]??0} · `:''}<b>${p.score} total</b></span></div>`).join('')}</div><div class="result-buttons">${v.isHost?final?'<button class="btn primary" data-action="rematch">↻ Start a new match</button>':`<button class="btn primary" data-action="next">▶ Play round ${v.roundIndex+1}</button><button class="btn secondary" data-action="end-match">🏁 End match & see winner</button>`:'<span class="tag accent" style="padding:15px">Waiting for the host…</span>'}<button class="btn tertiary" data-action="copy" ${isSolo?'disabled':''}>🔗 Copy invite</button><button class="btn tertiary" data-action="home">⌂ Home</button></div></section><div class="chat-layer results-chat ${chatMenuOpen?'chat-open':''}">${chatView(v)}<button class="chat-dismiss" data-action="chat-menu">Close chat ✕</button></div>`;}
-function render(){if(document.documentElement?.setAttribute){document.documentElement.setAttribute('data-theme',tableTheme);document.documentElement.classList?.toggle('no-motion',!animationsEnabled);}if(screen==='home')app.innerHTML=header()+homeView()+footer();else if(screen==='public')app.innerHTML=header()+publicView()+footer();else if(screen==='join')app.innerHTML=header()+joinView()+footer();else if(screen==='friends')app.innerHTML=header()+friendsView()+footer();else if(screen==='loading')app.innerHTML=header()+networkStatusView()+loadingView()+footer();else if(screen==='room'&&currentView){let body=currentView.phase==='lobby'?lobbyView():currentView.phase==='playing'?boardGameView():resultsView();app.innerHTML=header()+networkStatusView()+body+footer();const log=$('#chatlog');if(log)log.scrollTop=log.scrollHeight;syncVoice();announceMove();maybeVoiceHostCue();}else {screen='home';app.innerHTML=header()+homeView()+footer();}}
+function render(){if(document.documentElement?.setAttribute){document.documentElement.setAttribute('data-theme',tableTheme);document.documentElement.classList?.toggle('no-motion',!animationsEnabled);}if(screen==='home')app.innerHTML=header()+homeView()+footer();else if(screen==='public')app.innerHTML=header()+publicView()+footer();else if(screen==='join')app.innerHTML=header()+joinView()+footer();else if(screen==='friends')app.innerHTML=header()+friendsView()+footer();else if(screen==='loading')app.innerHTML=header()+networkStatusView()+loadingView()+footer();else if(screen==='room'&&currentView){let body=currentView.phase==='lobby'?lobbyView():currentView.phase==='playing'?boardGameView():resultsView();app.innerHTML=header()+networkStatusView()+body+micDock()+footer();const log=$('#chatlog');if(log)log.scrollTop=log.scrollHeight;syncVoice();announceMove();maybeVoiceHostCue();}else {screen='home';app.innerHTML=header()+homeView()+footer();}}
 function makeRoom(code, solo, name) {const id='host-'+uid();return {code,solo,isPublic:false,phase:'lobby',roundIndex:0,seats:[{id,name,isBot:false,score:0,connected:true,isHost:true}],chat:[],game:null,lastRound:null,history:[],owner:id};}
-function getView(pid){const r=hostRoom;const g=r.game,player=r.seats.find(p=>p.id===pid);return {code:r.code,phase:r.phase,isHost:pid===r.owner,roundIndex:r.roundIndex,players:r.seats.map(p=>({id:p.id,name:p.name,score:p.score,isBot:p.isBot,isHost:!!p.isHost,online:p.connected,cardCount:g?.hands?.[p.id]?.length||0})),myHand:g?.hands?.[pid]||[],legal:r.phase==='playing'&&g?.turnId===pid?legalMoves(g.hands[pid],g.board):[],game:g?{board:g.board,turnId:g.turnId,lastCard:g.lastCard,lastAction:g.lastAction}:null,lastRound:r.lastRound,chat:r.chat.slice(-70),history:r.history.slice(-10),you:player?.name||'Player',voicePeers:r.seats.filter(x=>!x.isBot).map(x=>({id:x.id,name:x.name,peerId:x.peerId||null,voiceOn:!!x.voiceOn,voiceMuted:!!x.voiceMuted,isBot:false}))};}
+function getView(pid){const r=hostRoom;const g=r.game,player=r.seats.find(p=>p.id===pid);return {code:r.code,phase:r.phase,isHost:pid===r.owner,roundIndex:r.roundIndex,players:r.seats.map(p=>({id:p.id,name:p.name,score:p.score,isBot:p.isBot,isHost:!!p.isHost,online:p.connected,cardCount:g?.hands?.[p.id]?.length||0})),myHand:g?.hands?.[pid]||[],legal:r.phase==='playing'&&g?.turnId===pid?legalMoves(g.hands[pid],g.board):[],game:g?{board:g.board,turnId:g.turnId,lastCard:g.lastCard,lastAction:g.lastAction}:null,lastRound:r.lastRound,cardsPerPlayer:g?.cardsPerPlayer??null,setAsideCount:g?.setAsideCount??0,chat:r.chat.slice(-70),history:r.history.slice(-10),you:player?.name||'Player',voicePeers:r.seats.filter(x=>!x.isBot).map(x=>({id:x.id,name:x.name,peerId:x.peerId||null,voiceOn:!!x.voiceOn,voiceMuted:!!x.voiceMuted,isBot:false}))};}
 function saveSolo(){if(hostRoom?.solo){try{store.setItem('syam7-solo-v3-k44',JSON.stringify(hostRoom));}catch{}}}
 function broadcast(){if(!hostRoom)return;currentView=getView(hostRoom.owner);screen='room';saveSolo();if(role==='host'&&!isSolo)relaySend(relaySocket,{type:'publish',public:!!hostRoom.isPublic,phase:hostRoom.phase,hostName:playerName});render();for(const [pid,c] of conns){if(c.open)try{c.send({type:'state',view:getView(pid)});}catch{}};scheduleBot();}
 function setupLocal(){stopNetwork();const name=saveName();role='host';isSolo=true;hostRoom=makeRoom('SOLO',true,name);myId=hostRoom.owner;addBot();addBot();broadcast();}
@@ -434,7 +448,28 @@ function joinOnline(){
 }
 
 function addBot(){if(!hostRoom||hostRoom.seats.length>=8||hostRoom.phase!=='lobby')return false;const botCount=hostRoom.seats.filter(p=>p.isBot).length;const name=BOT_NAMES[botCount%BOT_NAMES.length];hostRoom.seats.push({id:'bot-'+uid(),name,isBot:true,score:0,connected:true,isHost:false});return true;}
-function startRound(){if(!hostRoom||hostRoom.seats.length<2)return;const r=hostRoom;const deck=shuffle(allCards());const hands=Object.fromEntries(r.seats.map(p=>[p.id,[]]));deck.forEach((card,i)=>hands[r.seats[i%r.seats.length].id].push(card));const starterIndex=r.seats.findIndex(p=>hands[p.id].some(c=>c.suit==='H'&&c.rank===7));r.roundIndex++;r.phase='playing';r.lastRound=null;r.game={hands,board:{H:null,D:null,C:null,S:null},turnIndex:starterIndex,turnId:r.seats[starterIndex].id,lastCard:null,lastAction:'7♥ must be played first.'};logSystem('Round '+r.roundIndex+' started! '+r.seats[starterIndex].name+' holds 7♥.');broadcast();}
+function equalDealDeck(playerCount){
+ if(!Number.isInteger(playerCount)||playerCount<2||playerCount>8)throw new Error('2–8 players required');
+ const remainder=44%playerCount;
+ const excludedSuits=shuffle([...SUITS]).slice(0,remainder);
+ const setAside=excludedSuits.map(suit=>({suit,rank:13}));
+ const removed=new Set(excludedSuits.map(suit=>suit+'13'));
+ const cards=shuffle(allCards().filter(c=>!removed.has(c.suit+c.rank)));
+ if(cards.length%playerCount!==0||!cards.some(c=>c.suit==='H'&&c.rank===7))throw new Error('Equal-deal integrity check failed');
+ return {cards,setAside,cardsPerPlayer:cards.length/playerCount};
+}
+function startRound(){
+ if(!hostRoom||hostRoom.seats.length<2)return;
+ const r=hostRoom;
+ const {cards,setAside,cardsPerPlayer}=equalDealDeck(r.seats.length);
+ const hands=Object.fromEntries(r.seats.map(p=>[p.id,[]]));
+ cards.forEach((card,i)=>hands[r.seats[i%r.seats.length].id].push(card));
+ const starterIndex=r.seats.findIndex(p=>hands[p.id].some(c=>c.suit==='H'&&c.rank===7));
+ r.roundIndex++;r.phase='playing';r.lastRound=null;
+ r.game={hands,setAsideCount:setAside.length,cardsPerPlayer,board:{H:null,D:null,C:null,S:null},turnIndex:starterIndex,turnId:r.seats[starterIndex].id,lastCard:null,lastAction:'7♥ must be played first.'};
+ logSystem('Round '+r.roundIndex+': '+cardsPerPlayer+' cards per player. '+setAside.length+' unused high card(s) set aside. '+r.seats[starterIndex].name+' holds 7♥.');
+ broadcast();
+}
 function completeRound(winner){const r=hostRoom,g=r.game;const points={};for(const p of r.seats){const earned=g.hands[p.id].reduce((n,c)=>n+rankPoints(c),0);p.score+=earned;points[p.id]=earned;}
  r.lastRound={points,winnerName:winner.name,winnerId:winner.id};r.history.push({round:r.roundIndex,points});r.phase='round_end';logSystem(winner.name+' finished round '+r.roundIndex+'. Play again or choose End match.');broadcast();}
 function playCard(pid,card){const r=hostRoom,g=r?.game;if(!g||r.phase!=='playing'||turnPlayer(r)?.id!==pid)return;const current=g.hands[pid],pos=current.findIndex(c=>c.suit===card.suit&&c.rank===card.rank);if(pos<0||!legalMoves(current,g.board).some(c=>c.suit===card.suit&&c.rank===card.rank))return;
@@ -486,6 +521,7 @@ let voiceSilentGain=null;
 let voicePlaybackHeads=new Map();
 let voiceSentPackets=0;
 let voiceReceivedPackets=0;
+let voiceActivityTimer=null;
 function voiceStateChanged(){
  if(role==='host'&&hostRoom){
   const me=hostRoom.seats.find(x=>x.id===myId);
@@ -541,6 +577,8 @@ function handleVoiceAudio(message){
   src.start(start);
   voicePlaybackHeads.set(from,start+buffer.duration);
   voiceReceivedPackets++;
+  const activity=document.getElementById('voiceActivity');
+  if(activity){activity.textContent='🟢 Teammate speaking';const dock=activity.closest?.('.team-voice-dock');dock?.classList?.add('voice-receiving');clearTimeout(voiceActivityTimer);voiceActivityTimer=setTimeout(()=>{const curr=document.getElementById('voiceActivity');if(curr){curr.textContent=voiceMuted?'Mic muted':'Mic live';curr.closest?.('.team-voice-dock')?.classList?.remove('voice-receiving');}},800);}
   const state=document.getElementById('voiceReceiveStatus');
   if(state)state.textContent='🎧 Receiving voice audio ('+voiceReceivedPackets+' packets)';
  }catch(err){console.warn('Cannot decode room audio:',err);}
@@ -581,7 +619,7 @@ async function joinVoice(){
   voicePlaybackHeads.clear();
   voiceStateChanged();
   render();
-  toast('🎙️ Microphone ready. Each friend must tap Voice → Join voice too.');
+  toast('🎤 Team mic is on. Friends can hear you after they join team voice.');
  }catch(err){
   try{stream?.getTracks().forEach(t=>t.stop());}catch{}
   try{await ctx?.close();}catch{}
@@ -602,7 +640,7 @@ function stopVoice(notify=true){
  if(gain)try{gain.disconnect();}catch{}
  try{voiceStream?.getTracks().forEach(t=>t.stop());}catch{}
  voiceStream=null;voiceMuted=false;voiceAudioContext=null;voiceInputNode=null;voiceProcessor=null;voiceSilentGain=null;
- voicePlaybackHeads.clear();
+ voicePlaybackHeads.clear();clearTimeout(voiceActivityTimer);voiceActivityTimer=null;
  if(ctx)try{ctx.close().catch(()=>{});}catch{}
  if(notify){voiceStateChanged();render();toast('Left voice chat. Microphone is off.');}
 }
@@ -666,6 +704,8 @@ app.addEventListener('click',async event=>{const el=event.target.closest('[data-
  case 'remove-player':hostControl(a,el.dataset.player);break;
  case 'chat':sendChat();break;
  case 'reaction':sendMessage(el.dataset.emoji);break;
+ case 'mic-toggle':if(!voiceStream)await joinVoice();else toggleVoiceMute();break;
+ case 'mic-leave':stopVoice();break;
  case 'voice-toggle':if(voiceStream)stopVoice();else await joinVoice();break;
  case 'voice-mute':toggleVoiceMute();break;
  case 'voice-test':testVoiceSpeaker();break;
@@ -682,7 +722,7 @@ app.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='chatInput'
 app.addEventListener('change',e=>{if(e.target.id==='animationCheck'){animationsEnabled=!!e.target.checked;store.setItem('syam7-motion',animationsEnabled?'on':'off');render();return;}if(e.target.id==='announcerCheck'){announcerEnabled=!!e.target.checked;store.setItem('syam7-announcer',announcerEnabled?'on':'off');lastAnnouncedAction='';if(!announcerEnabled&&'speechSynthesis' in window)try{speechSynthesis.cancel();}catch{}return;}});
 $('#rulesClose').addEventListener('click',()=>$('#rulesDialog').close());
 $('#rulesDialog').addEventListener('click',e=>{if(e.target.id==='rulesDialog')$('#rulesDialog').close();});
-window.Syam7Test={allCards,legalMoves,makeRoom,shuffle,packCard,boardView,getView,hostControl,getHostRoom:()=>hostRoom,voicePanel,header,encodeVoiceSample,decodeVoiceSample,handleVoiceAudio};
+window.Syam7Test={allCards,legalMoves,makeRoom,shuffle,packCard,boardView,getView,hostControl,getHostRoom:()=>hostRoom,voicePanel,header,micDock,equalDealDeck,encodeVoiceSample,decodeVoiceSample,handleVoiceAudio};
 if(/^https?:$/.test(location.protocol))warmRoomServer();
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).catch(()=>{});}
 render();

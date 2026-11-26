@@ -1,4 +1,4 @@
 7Cards Games — By Syam
-Version: 1.7.1
-Release: Four mobile-friendly themes, fanned cards, bots, friends, voice, and unlimited rounds. Remove all Aces and 2s from the deck: 44 cards total, ranks 3–King. Old solo saves are isolated to prevent 52-card resumption.
+Version: 1.7.2
+Release: Room network health status (ping/pong), server warmup on home, connection retry, offline warnings, mobile lobby + in-game chat and retained unsent chat drafts. Keeps the 44-card 3–King rules, themes, friends, bots, voice and unlimited rounds.
 Website: https://sevencards-games-by-syam.onrender.com

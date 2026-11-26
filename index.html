@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#071b22">
   <meta name="description" content="7Cards Games by Syam – play the classic Sevens card game with friends or clever bots. Start with the 7 of hearts and finish with the fewest points.">
-  <title>7Cards Games v1.7.0 • by Syam</title>
+  <title>7Cards Games v1.7.1 • by Syam</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css?v=1.7.0">
-  <script defer src="./app.js?v=1.7.0"></script>
+  <link rel="stylesheet" href="./styles.css?v=1.7.1">
+  <script defer src="./app.js?v=1.7.1"></script>
 </head>
 <body>
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -17,13 +17,13 @@
   <div id="toast" aria-live="polite" class="toast"></div>
   <dialog id="rulesDialog" class="dialog">
     <div class="dialog-head"><h2>How to play 7Cards</h2><button class="icon-button" id="rulesClose" aria-label="Close rules">✕</button></div>
-    <p>We play with a standard <b>52-card deck</b>. All cards are shuffled and shared as evenly as possible between 2–8 players. No jokers.</p>
+    <p>We play using <b>44 cards</b> from a standard deck, removing every Ace and every 2. The remaining cards (3 through King in all four suits) are shuffled and dealt as evenly as possible to 2–8 players. No jokers.</p>
     <ol>
       <li>The player holding the <b>7 of hearts (♥)</b> must play it first.</li>
       <li>Next, you can add the <b>6♥ or 8♥</b>, open a new suit with any other <b>7</b>, or extend an opened suit one rank at a time.</li>
-      <li>For each suit, cards build downward to <b>Ace (1)</b> and upward to <b>King (13)</b>.</li>
+      <li>For each suit, cards build downward to <b>3</b> and upward to <b>King (13)</b>. No Ace or 2 can be played.</li>
       <li>On your turn, play one highlighted legal card. <b>Pass only when you have no legal card.</b></li>
-      <li>A round ends when someone plays their last card. Everybody else gets penalty points for cards remaining: A=1, J=11, Q=12, K=13.</li>
+      <li>A round ends when someone plays their last card. Everybody else gets penalty points for cards remaining: 3=3, J=11, Q=12, K=13.</li>
       <li>Play <b>as many rounds as you like</b>. After each completed round, scores are added together. When the host chooses <b>End match</b>, the player with the <b>lowest total penalty</b> wins. Ties share the win. An unfinished round does not count.</li>
     </ol>
     <p class="muted">Online games use a room relay for card play and optional live voice chat. The host must keep their tab open. There is no account, payment, betting, or money involved.</p>

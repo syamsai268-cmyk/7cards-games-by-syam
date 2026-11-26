@@ -638,3 +638,74 @@ body{
  .chat-layer.chat-open .chatlog{height:min(34vh,225px)}
  .chat-layer.chat-open .chatbox input{min-width:0;font-size:16px}
 }
+
+
+/* v1.8 — discoverable public tables, free voice host, share buttons */
+.public-opt{
+ display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+ padding:11px 12px;margin:7px 0 4px;background:#0d2e37;
+ border:1px solid #8cc9c156;border-radius:12px;
+ color:#d6f4df;font-size:12px;font-weight:800;cursor:pointer;
+}
+.public-opt input{accent-color:#71d6a8;width:17px;height:17px;min-height:0;flex:none}
+.public-opt span{font-size:11px;color:#9bbebb;font-weight:500}
+.promo-panel{
+ display:flex;gap:14px;align-items:center;justify-content:space-between;
+ width:min(560px,100%);padding:15px 17px;margin:14px 0 8px;
+ border-radius:17px;background:linear-gradient(125deg,#1b4150,#10303b);
+ border:1px solid #e2b76e62;box-shadow:0 10px 24px #0003;
+ text-align:left;
+}
+.promo-panel strong{font:850 16px Outfit;display:block;color:#ffdda0}
+.promo-panel p{color:#bbd6d8;font-size:12px;line-height:1.4;margin:5px 0 0}
+.promo-panel button{flex:none;min-height:42px;font-size:12px}
+.discover-actions{
+ display:flex;width:min(560px,100%);flex-wrap:wrap;align-items:stretch;
+ gap:8px;margin:5px 0 4px;
+}
+.discover-actions button{flex:1 1 125px;min-height:45px;padding:10px 12px;font-size:12px}
+.public-rooms{max-width:780px;margin:10px auto 25px}
+.public-rooms .section-header{gap:10px}
+.public-status{
+ background:#2c68572d;border:1px solid #72ca9b60;border-radius:10px;
+ color:#b6efcf;padding:11px 12px;font-size:12px;margin:12px 0;
+ font-weight:750;
+}
+.public-table{
+ display:flex;gap:12px;align-items:center;justify-content:space-between;
+ border:1px solid #9ed0ba55;background:#ffffff0d;padding:12px 13px;
+ margin-bottom:9px;border-radius:14px;
+}
+.public-table strong{display:block;color:#f3ecd1;font-size:14px;overflow-wrap:anywhere}
+.public-table small{display:block;font-size:11px;color:#a4cbc6;margin-top:4px}
+.public-table .btn{min-height:42px;padding:8px 18px;flex:none}
+.empty-public{
+ color:#b7d0cd;text-align:center;border:1px dashed #81afa56a;
+ border-radius:13px;padding:26px 12px;font-size:13px
+}
+.public-bottom{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px}
+.public-bottom button{flex:1;min-height:46px}
+.public-switch{
+ display:block;margin:16px 0 8px;max-width:100%;min-height:43px;
+ border:1px solid #e5c27e84!important;color:#fce4ad!important;
+ background:#f6d58a13!important;font-size:12px;
+}
+.host-guide{
+ border:1px solid #f3d08a66;background:#123c3d;
+ border-radius:13px;padding:13px;margin:10px 0;display:flex;gap:7px;flex-wrap:wrap;
+}
+.host-guide strong{display:block;width:100%;font-size:14px;color:#ffe4ad}
+.host-guide p{margin:0 0 5px;width:100%;font-size:11px;line-height:1.45;color:#bfd4d1}
+.host-guide button{font-size:11px;padding:9px 10px;min-height:40px}
+@media (max-width:700px){
+ .promo-panel{padding:13px 12px;flex-wrap:wrap;gap:10px}
+ .promo-panel strong{font-size:14px}
+ .promo-panel p{font-size:11px}
+ .promo-panel button{width:100%}
+ .discover-actions{gap:6px}
+ .discover-actions button{flex:1 1 110px}
+ .public-rooms{padding:16px 13px}
+ .public-table{padding:11px 9px}
+ .public-bottom button{flex:1 1 100%}
+ .public-opt{line-height:1.3}
+}

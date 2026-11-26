@@ -98,7 +98,7 @@ for(let players=2;players<=8;players++){
  const all=cards.concat(setAside).map(packCard);
  assert.equal(new Set(all).size,44,'No duplicated card');
  for(const suit of ['H','D','C','S']){
-  const kept=cards.filter(c=>c.suit===suit).map(c=>c.rank).sort((a,b)=>a-b);
+  const kept=Array.from(cards.filter(c=>c.suit===suit),c=>c.rank).sort((a,b)=>a-b);
   assert.deepEqual(kept,Array.from({length:kept.length},(_,i)=>i+3),'Every suit stays contiguous from 3');
  }
 }

@@ -1,4 +1,4 @@
-// 7Cards Games v1.7.2: zero-dependency CI checks. Run: node scripts/check-release.mjs
+// 7Cards Games v1.8.0: zero-dependency CI checks. Run: node scripts/check-release.mjs
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
@@ -11,9 +11,9 @@ const html=readFileSync(resolve(root,'index.html'),'utf8');
 const css=readFileSync(resolve(root,'styles.css'),'utf8');
 const code=readFileSync(resolve(root,'app.js'),'utf8');
 const sw=readFileSync(resolve(root,'sw.js'),'utf8');
-assert.match(html,/7Cards Games v1\.7\.2/);
-assert.match(html,/styles\.css\?v=1\.7\.2/);
-assert.match(html,/app\.js\?v=1\.7\.2/);
+assert.match(html,/7Cards Games v1\.8\.0/);
+assert.match(html,/styles\.css\?v=1\.8\.0/);
+assert.match(html,/app\.js\?v=1\.8\.0/);
 assert.match(css,/\.suit-name\.suit-H/);
 assert.match(css,/\.suit-name\.suit-D/);
 assert.match(css,/\.suit-name\.suit-C/);
@@ -24,7 +24,7 @@ assert.match(code,/sendMicrophoneAudio/);
 assert.match(code,/handleVoiceAudio/);
 assert.match(code,/navigator\.mediaDevices\.getUserMedia/);
 assert.doesNotMatch(code,/peer\.call\(/,'Game voice does not depend on WebRTC NAT traversal');
-assert.match(sw,/7cards-syam-v1\.7\.2/);
+assert.match(sw,/7cards-syam-v1\.8\.0/);
 
 // Execute the actual game JavaScript with a small browser DOM stub and test its exported rules.
 const eventTarget=()=>({innerHTML:'',textContent:'',classList:{add(){},remove(){}},addEventListener(){},showModal(){},close(){},scrollTop:0});
@@ -94,7 +94,7 @@ assert.match(css,/data-theme="galaxy"/);
 assert.match(css,/data-theme="neon"/);
 assert.match(css,/@media\(max-width:700px\)/,'Phone layout must be explicit');
 
-console.log('✓ v1.7.2: file structure, stylesheet, voice controls, SW version, game rules and author verified');
+console.log('✓ v1.8.0: file structure, stylesheet, voice controls, SW version, game rules and author verified');
 
 // Regression: first-child selector must not hide the wrapped Voice button on phones.
 assert.doesNotMatch(css,/\.top-actions \.pill:first-child\{display:none\}/);
@@ -121,3 +121,19 @@ assert.match(code,/chatDraft/,'Unsent chat draft is retained on refresh');
 assert.match(code,/case 'check-network'/,'User can manually check the room network');
 assert.match(css,/\.network-status/,'Network status has visible styling');
 assert.match(css,/\.chat-layer\.chat-open/,'Mobile chat overlay remains accessible');
+
+assert.equal(room.isPublic,false,'A newly created room is private by default');
+assert.match(code,/function publicView\(/,'There is a public rooms browser');
+assert.match(code,/publicRoom/,'A room must be explicitly opted in to public listing');
+assert.match(code,/type:'public-list'/,'Frontend requests public room discovery');
+assert.match(code,/type:'publish'/,'Frontend publishes public room state explicitly');
+assert.match(code,/function shareGamePromotion\(/,'Players can share a promotion link');
+assert.match(code,/function shareOnWhatsApp\(/,'Players can share via WhatsApp');
+assert.match(code,/function speakVoiceHost\(/,'Free browser speech host is available');
+assert.match(code,/SpeechSynthesisUtterance/,'Host narration uses device browser speech');
+assert.match(code,/case 'host-toggle'/,'Players can turn off voice host');
+assert.match(code,/case 'host-demo'/,'Players must be able to manually start the host voice');
+assert.match(code,/function maybeVoiceHostCue\(/,'Host narrates turns and round winners');
+assert.match(css,/\.public-table/,'Public table cards are styled');
+assert.match(css,/\.promo-panel/,'Promotion is clearly accessible on home');
+assert.match(css,/\.host-guide/,'Voice host controls are styled');
